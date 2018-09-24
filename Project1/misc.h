@@ -18,3 +18,5 @@ struct Conf
 };
 
 char* readFile(char *relativePath);
+
+struct Conf readConf(char *relativePath);

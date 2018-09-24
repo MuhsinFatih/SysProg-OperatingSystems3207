@@ -51,11 +51,10 @@ int main(int argc, char const *argv[])
 	printf("hello!\n");
 
 	char *buffer = NULL;
-	struct Conf asdf;
-	memset(&asdf, 0, sizeof(struct Conf));
-	// asdf.FIN_TIME = 1;
-	char *confText = readFile("conf.txt");
-	printf("%s\n", confText);
+	readConf("conf.txt");
+	
+	
+	
 
 
 	return 0;
