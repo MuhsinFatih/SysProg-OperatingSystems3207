@@ -28,7 +28,7 @@ Disk disk2;
 void simulate() {
 	size_t computeTime = 0;
 
-	while(++simTime < conf.FIN_TIME && !is_queue_empty(cpu.queue)) {
+	while(++simTime < conf.FIN_TIME) {
 		userActivity(); // adds processes to the queue at random times to simulate process
 		/*
 			- if there is job in queue, check its status, process it.
@@ -37,7 +37,9 @@ void simulate() {
 			- if there is no finished job in disks, fetch the next job to cpu queue
 			- if there is no job in the queue, wait for one to show up. stay idle (do nothong)
 		*/
-		
+		if(cpu.currentJob == NULL) { // cpu is idle
+			break;
+		}
 		if(--cpu.currentJob->burstTime <= 0) {
 			// job has finished compute time, will either go to a disk or exit (80 - 20)
 			// if(myrandom(0,100) > 20) {
@@ -55,23 +57,28 @@ pNode* upcomingJobs;
 size_t upcomingJobsSize;
 // This method doesn't represent anything about cpu's workings
 void userActivity() {
-	while (((Job*)upcomingJobs->val)->arrivalTime >= simTime) {
-		// if a job in the upcomingJobs queue is supposed to arrive, remove it from upcomingjobs and add it to cpu queue
-		Job* node = upcomingJobs->val;
-		upcomingJobs = upcomingJobs->next; // move the head to the next without freeing the head
-		push_queue(&cpu.queue, node, node->arrivalTime);
-	}
-	if(!is_queue_empty(upcomingJobs)) return; // add more jobs only if current batch is empty
-	
-	// fill the upcoming job queue
-	for(int i=0; i<upcomingJobsSize; ++i) {
-		pNode* current = upcomingJobs;
-		while(current != NULL) {
-			current = current->next;
+	if(!is_queue_empty(upcomingJobs)) { // add more jobs only if current batch is empty
+		while (((Job*)upcomingJobs->val)->arrivalTime >= simTime) {
+			// if a job in the upcomingJobs queue is supposed to arrive, remove it from upcomingjobs and add it to cpu queue
+			Job* node = upcomingJobs->val;
+			upcomingJobs = upcomingJobs->next; // move the head to the next without freeing the head
+			push_queue(&cpu.queue, node, node->arrivalTime);
 		}
-		Job* newJob = generateJob();
-		// priority of newJob is its arrival time
-		push_queue(&upcomingJobs, newJob, newJob->arrivalTime);
+	} else {
+		// fill the upcoming job queue
+		{ // first item must be added seperately as it is to be the head
+			Job* newJob = generateJob();
+			upcomingJobs = new_queue_node(newJob, newJob->arrivalTime);
+		}
+		for(int i=0; i<upcomingJobsSize-1; ++i) {
+			pNode* current = upcomingJobs;
+			while(current != NULL) {
+				current = current->next;
+			}
+			Job* newJob = generateJob();
+			// priority of newJob is its arrival time
+			push_queue(&upcomingJobs, newJob, newJob->arrivalTime);
+		}
 	}
 }
 
