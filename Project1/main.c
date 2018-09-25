@@ -19,12 +19,15 @@ CPU cpu;
 Disk disk1;
 Disk disk2;
 
-
-void killJob(Job* job, pNode *queuePos);
+/* Forward declerations */
+	void killJob(Job* job, pNode *queuePos);
+	void userActivity();
+	Job* generateJob();
+/* End forward declerations */
 
 void simulate() {
 	size_t computeTime = 0;
-	cpu.currentJob = (Job*)cpu.queue->val;
+
 	while(++simTime < conf.FIN_TIME && !is_queue_empty(cpu.queue)) {
 		userActivity(); // adds processes to the queue at random times to simulate process
 		/*
@@ -49,15 +52,32 @@ void simulate() {
 }
 
 pNode* upcomingJobs;
-size_t upcomingJobsCount; // Doesn't really do anything
+size_t upcomingJobsSize;
 // This method doesn't represent anything about cpu's workings
 void userActivity() {
+	while (((Job*)upcomingJobs->val)->arrivalTime >= simTime) {
+		// if a job in the upcomingJobs queue is supposed to arrive, remove it from upcomingjobs and add it to cpu queue
+		Job* node = upcomingJobs->val;
+		upcomingJobs = upcomingJobs->next; // move the head to the next without freeing the head
+		push_queue(&cpu.queue, node, node->arrivalTime);
+	}
 	if(!is_queue_empty(upcomingJobs)) return; // add more jobs only if current batch is empty
-
+	
+	// fill the upcoming job queue
+	for(int i=0; i<upcomingJobsSize; ++i) {
+		pNode* current = upcomingJobs;
+		while(current != NULL) {
+			current = current->next;
+		}
+		Job* newJob = generateJob();
+		// priority of newJob is its arrival time
+		push_queue(&upcomingJobs, newJob, newJob->arrivalTime);
+	}
 }
 
 size_t jobCount = 0;
 size_t lastArrivalTime = 0;
+// TODO: move this to a library file
 Job* generateJob() {
 	Job* job = malloc(sizeof(Job));
 	job->id = jobCount++;
@@ -80,6 +100,13 @@ void killJob(Job* job, pNode *queuePos) {
 
 int main(int argc, char const *argv[])
 {
+	char cwd[150];
+   if (getcwd(cwd, sizeof(cwd)) != NULL) {
+       printf("Current working dir: %s\n", cwd);
+   } else {
+       perror("getcwd() error");
+       return 1;
+   }
 	printf("hello!\n");
 
 	char *buffer = NULL;
@@ -88,8 +115,6 @@ int main(int argc, char const *argv[])
 	initrandom(conf.SEED);
 
 
-	Job* firstJob = generateJob();
-	simTime = firstJob->arrivalTime;
 	cpu = (CPU){
 		.queue = NULL,
 		.queueSize = 5,
@@ -107,33 +132,14 @@ int main(int argc, char const *argv[])
 	};
 
 
+	upcomingJobsSize = cpu.queueSize;
 
-
-	// fill the cpu queue
-	for(int i=0; i<cpu.queueSize-1; ++i) {
-		pNode* current = cpu.queue;
-		while(current != NULL) {
-			current = current->next;
-		}
-		Job* newJob = generateJob();
-		// priority of newJob is its arrival time
-		push_queue(&cpu.queue, newJob, newJob->arrivalTime);
-	}
 
 
 	printf("there are %i items in the queue\n", size_queue(cpu.queue));
 	printf("starting simulation\n");
 	simulate();
 
-	
-	// for(size_t i = 0; i < numOfJobs; ++i) {
-	// 	// jobs[i] = (struct Job) {
-	// 	// 	.arrivalTime = myrandom(conf.ARRIVE_MIN, conf.ARRIVE_MAX),
-	// 	// 	.burstTime = myrandom(conf.CPU_MIN, conf.CPU_MAX)
-	// 	// };
-
-		
-	// }
 	
 
 	return 0;
