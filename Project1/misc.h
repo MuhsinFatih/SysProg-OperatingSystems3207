@@ -1,5 +1,6 @@
 #pragma once
 #include <sys/types.h>
+#include "pqueue.h"
 
 struct Conf
 {
@@ -56,15 +57,29 @@ struct Context {
     int ebp;
 };
 
-struct Job
+typedef struct job
 {
     // struct Context context;
+    int id;
     int arrivalTime;
     int burstTime;
-};
+} Job;
+
+typedef struct cpu {
+    pNode* queue;
+    int queueSize;
+    Job currentJob;
+} CPU;
+typedef struct disk {
+    pNode* queue;
+    int queueSize;
+    Job currentJob;
+} Disk;
+
 
 void initrandom(unsigned seed);
 int myrandom(int low, int high);
 double rand01(void);
 
 
+void log_event(size_t time, const char* event);

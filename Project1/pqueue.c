@@ -4,40 +4,28 @@
 
 #include "pqueue.h"
 
-typedef struct node {
-    void* val; // any pointer
-    int priority; // will not use this time, but it turned out to be easy to implement anyways
-    struct node* next;
-} Node;
 
-Node* newNode(void* val, int priority) {
-    Node* node = (Node*)malloc(sizeof(Node));
+
+pNode* new_queue_node(void* val, int priority) {
+    pNode* node = (pNode*)malloc(sizeof(pNode));
     node->val = val;
     node->next = NULL;
     node->priority = priority;
 
     return node;
 }
-Node* newNode(void* val) {
-    Node* node = (Node*)malloc(sizeof(Node));
-    node->val = val;
-    node->next = NULL;
-    node->priority = 0;
-
-    return node;
-}
 
 // Remove the head, move head to next
-void pop(Node** head) {
-    Node* temp = *head;
+void pop_queue(pNode** head) {
+    pNode* temp = *head;
     (*head) = (*head)->next;
     free(temp);
 }
 
 // push to appropriate position
-void pushQueue(Node** head, void* val, int priority) {
-    Node* start = (*head);
-    Node* node = newNode(val, priority);
+void push_queue(pNode** head, void* val, int priority) {
+    pNode* start = (*head);
+    pNode* node = new_queue_node(val, priority);
     
     // Special case: The head of the list has higher priority (smaller number)
     // Insert new node before the head
@@ -53,9 +41,19 @@ void pushQueue(Node** head, void* val, int priority) {
         node->next = start->next;
         start->next = node;
     }
+    
 }
 
-bool isEmpty(Node** head) {
-    return (*head) == NULL;
+bool is_queue_empty(pNode* head) {
+    return (head) == NULL;
 }
 
+int size_queue(pNode* head) {
+    int size = 0;
+    pNode* start = head;
+    while(start != NULL){
+        start = start->next;
+        ++size;
+    }
+    return size;
+}

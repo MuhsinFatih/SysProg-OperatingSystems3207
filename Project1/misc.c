@@ -137,3 +137,10 @@ int myrandom(int low, int high) {
 double rand01(void) {
     return(random()/(double)RAND_MAX);
 }
+
+
+void log_event(size_t time, const char* event) {
+    char buffer[80];
+    sprintf(buffer, "at time %i: [%s]", time, event);
+    printf("%s\n", buffer);
+}
