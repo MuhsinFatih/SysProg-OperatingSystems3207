@@ -15,11 +15,12 @@ pNode* new_queue_node(void* val, int priority) {
     return node;
 }
 
-// Remove the head, move head to next
-void pop_queue(pNode** head) {
+// Remove the head, move head to next, return the address of new head
+pNode* pop_queue(pNode** head) {
     pNode* temp = *head;
     (*head) = (*head)->next;
     free(temp);
+    return (*head);
 }
 
 // push to appropriate position

@@ -68,12 +68,12 @@ typedef struct job
 typedef struct cpu {
     pNode* queue;
     int queueSize;
-    Job currentJob;
+    Job* currentJob;
 } CPU;
 typedef struct disk {
     pNode* queue;
     int queueSize;
-    Job currentJob;
+    Job* currentJob;
 } Disk;
 
 
