@@ -122,3 +122,18 @@ struct Conf readConf(char *relativePath) {
 
 	return conf;
 }
+
+void initrandom(unsigned seed) {
+    // call before generating random numbers
+    #define RANDSIZE 256
+    static char randstate[RANDSIZE];
+    initstate(seed, randstate, RANDSIZE);
+}
+
+int myrandom(int low, int high) {
+    return(low + random() % (high-low+1));
+}
+
+double rand01(void) {
+    return(random()/(double)RAND_MAX);
+}

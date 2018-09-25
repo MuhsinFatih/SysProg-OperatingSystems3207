@@ -45,7 +45,26 @@ struct Conf
 };
 struct Conf readConf(char *relativePath);
 
-struct Process
-{
-    
+struct Context {
+    int eip;
+    int esp;
+    int ebx;
+    int ecx;
+    int edx;
+    int esi;
+    int edi;
+    int ebp;
 };
+
+struct Job
+{
+    // struct Context context;
+    int arrivalTime;
+    int burstTime;
+};
+
+void initrandom(unsigned seed);
+int myrandom(int low, int high);
+double rand01(void);
+
+
