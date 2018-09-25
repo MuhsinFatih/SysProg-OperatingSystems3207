@@ -24,15 +24,18 @@ pNode* pop_queue(pNode** head) {
 }
 
 // push to appropriate position
-void push_queue(pNode** head, void* val, int priority) {
-    pNode* start = (*head);
+void push_queue(pNode* head, void* val, int priority) {
+    pNode* start = head;
     pNode* node = new_queue_node(val, priority);
+    if(head == NULL) {
+        *head = *node; // mutate head to point the new node. nice
+    }
     
     // Special case: The head of the list has higher priority (smaller number)
     // Insert new node before the head
-    if((*head)->priority > priority) {
-        node->next = *head;
-        (*head) = node;
+    if(head->priority > priority) {
+        node->next = head;
+        head = node;
     } else {
         // Find the position to insert new node
         while(start->next != NULL &&
@@ -42,11 +45,10 @@ void push_queue(pNode** head, void* val, int priority) {
         node->next = start->next;
         start->next = node;
     }
-    
 }
 
 bool is_queue_empty(pNode* head) {
-    return (head) == NULL;
+    return head == NULL;
 }
 
 int size_queue(pNode* head) {

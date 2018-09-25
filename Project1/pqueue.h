@@ -9,6 +9,6 @@ typedef struct node {
 
 pNode* new_queue_node(void* val, int priority);
 pNode* pop_queue(pNode** head);
-void push_queue(pNode** head, void* val, int priority);
+void push_queue(pNode* head, void* val, int priority);
 bool is_queue_empty(pNode* head);
 int size_queue(pNode* head);
