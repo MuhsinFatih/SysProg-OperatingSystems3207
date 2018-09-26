@@ -54,9 +54,9 @@ void simulate() {
 }
 
 void arriveAtCPU(Job* job) {
-	push_queue(cpu.queue, job, job->arrivalTime);
+	push_queue(&cpu.queue, job, job->arrivalTime);
 	char buffer[80];
-	sprintf(buffer, "job %i created (burst time:%i)", job->id, job->burstTime);
+	sprintf(buffer, "job %i arrived at CPU (burst time:%i)", job->id, job->burstTime);
 	log_event(job->arrivalTime, buffer);
 }
 
@@ -65,11 +65,13 @@ size_t upcomingJobsSize;
 // This method doesn't represent anything about cpu's workings
 void userActivity() {
 	if(!is_queue_empty(upcomingJobs)) { // add more jobs only if current batch is empty
-		while (((Job*)upcomingJobs->val)->arrivalTime >= simTime) {
+		while (((Job*)upcomingJobs->val)->arrivalTime <= simTime) {
+			auto x = ((Job*)upcomingJobs->val)->arrivalTime;
 			// if a job in the upcomingJobs queue is supposed to arrive, remove it from upcomingjobs and add it to cpu queue
 			Job* job = upcomingJobs->val;
 			upcomingJobs = upcomingJobs->next; // move the head to the next without freeing the head
 			arriveAtCPU(job);
+			if(is_queue_empty(upcomingJobs)) {break;}
 		}
 	} else {
 		// fill the upcoming job queue
@@ -80,7 +82,7 @@ void userActivity() {
 			}
 			Job* newJob = generateJob();
 			// priority of newJob is its arrival time
-			push_queue(upcomingJobs, newJob, newJob->arrivalTime);
+			push_queue(&upcomingJobs, newJob, newJob->arrivalTime);
 		}
 	}
 }
@@ -102,7 +104,7 @@ void killJob(Job* job, pNode *queuePos) {
 	char buffer[80];
 	sprintf(buffer, "job %i destroyed", job->id);
 	log_event(simTime, buffer);
-	cpu.queue = pop_queue(&cpu.queue);
+	pop_queue(cpu.queue);
 }
 
 
@@ -114,7 +116,6 @@ int main(int argc, char const *argv[])
 	conf = readConf("conf.txt");
 	
 	initrandom(conf.SEED);
-
 
 	cpu = (CPU){
 		.queue = NULL,
