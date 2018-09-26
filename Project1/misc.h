@@ -71,9 +71,11 @@ typedef struct cpu {
     Job* currentJob;
 } CPU;
 typedef struct disk {
+    int id;
     pNode* queue;
     int queueSize;
-    Job* currentJob;
+    pNode* currentJobPos;
+    uint DISK_MIN, DISK_MAX;
 } Disk;
 
 

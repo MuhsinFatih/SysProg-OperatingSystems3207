@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <string.h>
 #include <stdbool.h>
+#include <limits.h>
 
 #include "misc.h"
 #include "pqueue.h"
@@ -18,12 +19,20 @@ size_t simTime = 0;
 CPU cpu;
 Disk disk1;
 Disk disk2;
-
+Disk* disks;
+size_t diskCount;
 /* Forward declerations */
 	void killJob(Job* job, pNode *queuePos);
 	void userActivity();
 	Job* generateJob();
 	bool jobNeedsDisk(Job* job);
+	void arriveAtDisk(Job* job, Disk* disk);
+	void diskEnter(pNode* jobPos, Disk* disk);
+	void diskCompute();
+	void cpuEnter(Job* job);
+	bool cpuDetermineJob();
+	void removeJobFromCPU();
+	Disk* pickBestDisk();
 /* End forward declerations */
 
 void simulate() {
@@ -31,6 +40,7 @@ void simulate() {
 
 	while(++simTime < conf.FIN_TIME) {
 		userActivity(); // adds processes to the queue at random times to simulate process
+		diskCompute();
 		/*
 			- if there is job in queue, check its status, process it.
 				- if job is done, go to a disk or terminate (%80 - %20)
@@ -38,31 +48,111 @@ void simulate() {
 			- if there is no finished job in disks, fetch the next job to cpu queue
 			- if there is no job in the queue, wait for one to show up. stay idle (do nothong)
 		*/
-		if(cpu.currentJob == NULL) { // cpu is idle
-			if(!is_queue_empty(cpu.queue)) {
-				cpu.currentJob = (Job*)cpu.queue->val;
-			} else {
-				continue;
-			}
-		}
+		if(!cpuDetermineJob()) {continue; /* cpu is idle */}
 		if(--cpu.currentJob->burstTime <= 0) {
 			// job has finished compute time
-			// if(jobNeedsDisk(cpu.currentJob)) {
-			// 	int disk1QueueCount = size_queue(disk1.queue);
-			// 	int disk2QueueCount = size_queue(disk2.queue);
-			// 	Disk disk = disk1QueueCount <= disk2QueueCount ? disk1 : disk2;
-			// } else {
+			if(jobNeedsDisk(cpu.currentJob)) {
+				Disk* bestDisk = pickBestDisk();
+				arriveAtDisk(cpu.currentJob, bestDisk);
+				removeJobFromCPU();
+			} else {
 				killJob(cpu.currentJob, cpu.queue);
 				cpu.currentJob = NULL;
-			// }
-			if(!is_queue_empty(cpu.queue)) cpu.currentJob = cpu.queue->val; // pick the next job
+			}
 		}
 	}
 	printf("simulation ended successfully\n");
 }
 
-void cpuEnter(Job* job) {
+Disk* pickBestDisk() {
+	Disk* bestDisk = &disks[0];
+	size_t qc = INT_MAX;
+	for(size_t i = 0; i < diskCount; ++i) {
+		Disk* disk = &disks[i];
+		auto diskQueueCount = size_queue(disk->queue);
+		if(disk->queueSize - diskQueueCount && diskQueueCount < qc) { // check if there is empty slot in the queue AND determine shortest current queue
+			bestDisk = disk;
+			qc = diskQueueCount;
+		}
+	}
+	return bestDisk;
+}
+
+void removeJobFromCPU() {
+	cpu.queue = cpu.queue->next;
+	cpu.currentJob = NULL;
+
+}
+
+ /**
+  * @brief If cpu is idle, switch to next available job
+  * @retval returns false if CPU is idle (no job available), true otherwise
+  */
+bool cpuDetermineJob() {
+	if(cpu.currentJob == NULL) { // cpu is idle
+		
+		// check disks for finished jobs
+		for(size_t i = 0; i < diskCount; ++i) {
+			Disk* disk = &disks[i];
+			pNode* qp = disk->queue; // queue position
+			size_t cpuQueueCount = size_queue(cpu.queue);
+			// return all finished jobs to cpu as long as cpu queue has enough free slot
+			Job* job = (Job*)qp->val;
+			while(job != NULL && job->burstTime == 0 && cpuQueueCount < cpu.queueSize) {
+				cpuEnter(job);
+				qp = qp->next;
+				job = (Job*)qp->val;
+			}
+			disk->queue = qp; // point to the next job if one/several is removed from queue
+		}
+		
+
+
+		if(!is_queue_empty(cpu.queue)) {
+			cpuEnter(cpu.queue->val);
+			return true;
+		} else {
+			return false;
+		}
+	}
+	return true;
+}
+
+void diskCompute() {
+	for(int i=0; i<diskCount; ++i) {
+		Disk* disk = &disks[i];
+		if(disk->currentJobPos->val == NULL) { // disk is idle
+			if(!is_queue_empty(disk->queue)) {
+				
+			}
+		}
+	}
+}
+
+void diskEnter(pNode* jobPos, Disk* disk) {
+	disk->currentJobPos = jobPos;
+	Job* job = (Job*)jobPos->val;
+	char buffer[80];
+	sprintf(buffer, "job %i entered disk%i (disk compute time:%i)", job->id, disk->id, job->burstTime);
+	log_event(job->arrivalTime, buffer);
+}
+
+void arriveAtDisk(Job* job, Disk* disk) {
+	job->burstTime = myrandom(disk->DISK_MIN, conf.DISK1_MIN);
 	
+	push_queue(&disk->queue, job, job->arrivalTime);
+
+	char buffer[80];
+	sprintf(buffer, "job %i arrived at disk%i_queue", job->id, disk->id);
+	log_event(simTime, buffer);
+
+}
+
+void cpuEnter(Job* job) {
+	cpu.currentJob = job;
+	char buffer[80];
+	sprintf(buffer, "job %i entered CPU (burst time:%i)", job->id, job->burstTime);
+	log_event(job->arrivalTime, buffer);
 }
 
 // convenience function, returns true 80% of the time
@@ -73,7 +163,7 @@ bool jobNeedsDisk(Job* job) {
 void arriveAtCPU(Job* job) {
 	push_queue(&cpu.queue, job, job->arrivalTime);
 	char buffer[80];
-	sprintf(buffer, "job %i arrived at CPU queue (burst time:%i)", job->id, job->burstTime);
+	sprintf(buffer, "job %i arrived at CPU_queue", job->id);
 	log_event(job->arrivalTime, buffer);
 }
 
@@ -114,7 +204,6 @@ Job* generateJob() {
 	job->burstTime = myrandom(conf.CPU_MIN, conf.CPU_MAX);
 
 	lastArrivalTime = job->arrivalTime;
-	
 	return job;
 }
 
@@ -142,17 +231,24 @@ int main(int argc, char const *argv[])
 		.currentJob = NULL
 	};
 	disk1 = (Disk) {
+		.id = 1,
 		.queue = NULL,
-		.queueSize = 1,
-		.currentJob = NULL
+		.queueSize = 4,
+		.currentJobPos = NULL,
+		.DISK_MIN = conf.DISK1_MIN,
+		.DISK_MAX = conf.DISK1_MAX
 	};
 	disk2 = (Disk) {
+		.id = 2,
 		.queue = NULL,
-		.queueSize = 1,
-		.currentJob = NULL
+		.queueSize = 4,
+		.currentJobPos = NULL,
+		.DISK_MIN = conf.DISK2_MIN,
+		.DISK_MAX = conf.DISK2_MAX
 	};
 
-
+	disks = (Disk[]){disk1, disk2};
+	diskCount = 2;
 	upcomingJobsSize = cpu.queueSize;
 
 
