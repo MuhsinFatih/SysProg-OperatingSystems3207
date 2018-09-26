@@ -23,6 +23,7 @@ Disk disk2;
 	void killJob(Job* job, pNode *queuePos);
 	void userActivity();
 	Job* generateJob();
+	bool jobNeedsDisk(Job* job);
 /* End forward declerations */
 
 void simulate() {
@@ -38,25 +39,41 @@ void simulate() {
 			- if there is no job in the queue, wait for one to show up. stay idle (do nothong)
 		*/
 		if(cpu.currentJob == NULL) { // cpu is idle
-			continue;
+			if(!is_queue_empty(cpu.queue)) {
+				cpu.currentJob = (Job*)cpu.queue->val;
+			} else {
+				continue;
+			}
 		}
 		if(--cpu.currentJob->burstTime <= 0) {
-			// job has finished compute time, will either go to a disk or exit (80 - 20)
-			// if(myrandom(0,100) > 20) {
-			// 	// TODO: implement
+			// job has finished compute time
+			// if(jobNeedsDisk(cpu.currentJob)) {
+			// 	int disk1QueueCount = size_queue(disk1.queue);
+			// 	int disk2QueueCount = size_queue(disk2.queue);
+			// 	Disk disk = disk1QueueCount <= disk2QueueCount ? disk1 : disk2;
 			// } else {
 				killJob(cpu.currentJob, cpu.queue);
-				if(!is_queue_empty(cpu.queue)) cpu.currentJob = cpu.queue->val; // pick the next job
+				cpu.currentJob = NULL;
 			// }
+			if(!is_queue_empty(cpu.queue)) cpu.currentJob = cpu.queue->val; // pick the next job
 		}
 	}
 	printf("simulation ended successfully\n");
 }
 
+void cpuEnter(Job* job) {
+	
+}
+
+// convenience function, returns true 80% of the time
+bool jobNeedsDisk(Job* job) {
+	return(myrandom(0,100) > 20);
+}
+
 void arriveAtCPU(Job* job) {
 	push_queue(&cpu.queue, job, job->arrivalTime);
 	char buffer[80];
-	sprintf(buffer, "job %i arrived at CPU (burst time:%i)", job->id, job->burstTime);
+	sprintf(buffer, "job %i arrived at CPU queue (burst time:%i)", job->id, job->burstTime);
 	log_event(job->arrivalTime, buffer);
 }
 
@@ -74,8 +91,9 @@ void userActivity() {
 			if(is_queue_empty(upcomingJobs)) {break;}
 		}
 	} else {
+		if(size_queue(cpu.queue) >= cpu.queueSize) {return;}
 		// fill the upcoming job queue
-		for(int i=0; i<upcomingJobsSize-1; ++i) {
+		for(int i=0; i<upcomingJobsSize; ++i) {
 			pNode* current = upcomingJobs;
 			while(current != NULL) {
 				current = current->next;
@@ -104,7 +122,8 @@ void killJob(Job* job, pNode *queuePos) {
 	char buffer[80];
 	sprintf(buffer, "job %i destroyed", job->id);
 	log_event(simTime, buffer);
-	pop_queue(cpu.queue);
+	pop_queue(&cpu.queue);
+	cpu.currentJob = NULL;
 }
 
 

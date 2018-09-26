@@ -17,9 +17,10 @@ pNode* new_queue_node(void* val, int priority) {
 
 // Remove the head and move head to next
 // Mutates the head to point the next node
-void pop_queue(pNode* head) {
-    pNode* temp = head;
-    *head = *(head->next); // now the head pointer points to head->next. Old head is destroyed
+void pop_queue(pNode** head) {
+    pNode* temp = *head;
+    if((*head)->next == NULL) *head = NULL;
+    else *head = (*head)->next; // now the head pointer points to head->next. Old head is destroyed
     free(temp);
 }
 
