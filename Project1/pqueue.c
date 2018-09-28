@@ -49,6 +49,21 @@ void push_queue(pNode** head, void* val, int priority) {
     }
 }
 
+// insert to the end of queue
+void push_queue_end(pNode** head, void* val) {
+    pNode* start = *head;
+    pNode* node = new_queue_node(val, 0);
+    if(*head == NULL) {
+        *head = node; // mutate head to point the new node. nice
+        return;
+    }
+    // Go to the end of queue and insert new node
+    while(start->next != NULL){
+        start = start->next;
+    }
+    start->next = node;
+}
+
 bool is_queue_empty(pNode* head) {
     return head == NULL;
 }

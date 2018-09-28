@@ -27,12 +27,14 @@ size_t diskCount;
 	Job* generateJob();
 	bool jobNeedsDisk(Job* job);
 	void arriveAtDisk(Job* job, Disk* disk);
-	void diskEnter(pNode* jobPos, Disk* disk);
+	void diskEnter(Job* job, Disk* disk);
 	void diskCompute();
 	void cpuEnter(Job* job);
 	bool cpuDetermineJob();
 	void removeJobFromCPU();
 	Disk* pickBestDisk();
+	void arriveAtCPU_end(Job* job);
+	void returnFromDisk(Job* job, Disk* disk);
 /* End forward declerations */
 
 void simulate() {
@@ -78,10 +80,14 @@ Disk* pickBestDisk() {
 	return bestDisk;
 }
 
+
+void removeJobFromDisk(Disk* disk) {
+	disk->queue = disk->queue->next; // increment disk queue pointer
+	disk->currentJob = NULL;
+}
 void removeJobFromCPU() {
 	cpu.queue = cpu.queue->next;
 	cpu.currentJob = NULL;
-
 }
 
  /**
@@ -95,16 +101,14 @@ bool cpuDetermineJob() {
 		for(size_t i = 0; i < diskCount; ++i) {
 			Disk* disk = &disks[i];
 			if(is_queue_empty(disk->queue)) {continue;}
-			pNode* qp = disk->queue; // queue position
+
+			Job* job = (Job*)disk->queue->val;
 			size_t cpuQueueCount = size_queue(cpu.queue);
-			// return all finished jobs to cpu as long as cpu queue has enough free slot
-			Job* job = (Job*)qp->val;
-			while(qp != NULL && job->burstTime == 0 && cpuQueueCount < cpu.queueSize) {
-				cpuEnter(job);
-				qp = qp->next;
-				job = (Job*)qp->val;
+
+			if(job->burstTime <= 0 && cpuQueueCount < cpu.queueSize) {
+				job->burstTime = myrandom(conf.CPU_MIN, conf.CPU_MAX);
+				returnFromDisk(job, disk);
 			}
-			disk->queue = qp; // point to the next job if one/several is removed from queue
 		}
 		
 
@@ -122,34 +126,28 @@ bool cpuDetermineJob() {
 void diskCompute() {
 	for(int i=0; i<diskCount; ++i) {
 		Disk* disk = &disks[i];
-		if(disk->currentJobPos == NULL) { // if disk is idle
+		if(disk->currentJob == NULL) {
 			if(!is_queue_empty(disk->queue) && ((Job*)disk->queue->val)->burstTime > 0) { // if the disk queue contains a job AND the job is NOT finished
-				diskEnter(disk->queue, disk);
+				diskEnter((Job*)disk->queue->val, disk);
 			}
 		}
 
-
-		if(disk->currentJobPos != NULL) {
-			if(--((Job*)disk->currentJobPos->val)->burstTime <= 0) {
-				// job is completed on the disk
-				((Job*)disk->currentJobPos->val)->burstTime = myrandom(conf.CPU_MIN, conf.CPU_MAX);
-				disk->currentJobPos = disk->currentJobPos->next;
-			}
-
+		if(disk->currentJob != NULL && disk->currentJob->burstTime >= 0) { // wait for cpu if job is finished
+			--disk->currentJob->burstTime; // disk computation
 		}
+	
 	}
 }
 
-void diskEnter(pNode* jobPos, Disk* disk) {
-	disk->currentJobPos = jobPos;
-	Job* job = (Job*)jobPos->val;
+void diskEnter(Job* job, Disk* disk) {
+	disk->currentJob = job;
 	char buffer[80];
 	sprintf(buffer, "job %i entered disk%i (disk compute time:%i)", job->id, disk->id, job->burstTime);
-	log_event(job->arrivalTime, buffer);
+	log_event(simTime, buffer);
 }
 
 void arriveAtDisk(Job* job, Disk* disk) {
-	job->burstTime = myrandom(disk->DISK_MIN, conf.DISK1_MIN);
+	job->burstTime = myrandom(disk->DISK_MIN, conf.DISK1_MAX);
 	
 	push_queue(&disk->queue, job, job->arrivalTime);
 
@@ -163,7 +161,7 @@ void cpuEnter(Job* job) {
 	cpu.currentJob = job;
 	char buffer[80];
 	sprintf(buffer, "job %i entered CPU (burst time:%i)", job->id, job->burstTime);
-	log_event(job->arrivalTime, buffer);
+	log_event(simTime, buffer);
 }
 
 // convenience function, returns true 80% of the time
@@ -173,6 +171,22 @@ bool jobNeedsDisk(Job* job) {
 
 void arriveAtCPU(Job* job) {
 	push_queue(&cpu.queue, job, job->arrivalTime);
+	char buffer[80];
+	sprintf(buffer, "job %i arrived at CPU_queue", job->id);
+	log_event(job->arrivalTime, buffer);
+}
+
+void returnFromDisk(Job* job, Disk* disk) {
+	removeJobFromDisk(disk);
+	push_queue_end(&cpu.queue, job);
+	char buffer[80];
+	sprintf(buffer, "job %i returned from disk %i to CPU_queue", job->id, disk->id);
+	log_event(simTime, buffer);
+}
+
+
+void arriveAtCPU_end(Job* job) {
+	push_queue_end(&cpu.queue, job);
 	char buffer[80];
 	sprintf(buffer, "job %i arrived at CPU_queue", job->id);
 	log_event(job->arrivalTime, buffer);
@@ -245,7 +259,7 @@ int main(int argc, char const *argv[])
 		.id = 1,
 		.queue = NULL,
 		.queueSize = 4,
-		.currentJobPos = NULL,
+		.currentJob = NULL,
 		.DISK_MIN = conf.DISK1_MIN,
 		.DISK_MAX = conf.DISK1_MAX
 	};
@@ -253,7 +267,7 @@ int main(int argc, char const *argv[])
 		.id = 2,
 		.queue = NULL,
 		.queueSize = 4,
-		.currentJobPos = NULL,
+		.currentJob = NULL,
 		.DISK_MIN = conf.DISK2_MIN,
 		.DISK_MAX = conf.DISK2_MAX
 	};

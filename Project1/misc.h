@@ -74,7 +74,7 @@ typedef struct disk {
     int id;
     pNode* queue;
     int queueSize;
-    pNode* currentJobPos;
+    Job* currentJob;
     uint DISK_MIN, DISK_MAX;
 } Disk;
 
