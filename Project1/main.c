@@ -40,7 +40,6 @@ void simulate() {
 
 	while(++simTime < conf.FIN_TIME) {
 		userActivity(); // adds processes to the queue at random times to simulate process
-		diskCompute();
 		/*
 			- if there is job in queue, check its status, process it.
 				- if job is done, go to a disk or terminate (%80 - %20)
@@ -53,19 +52,20 @@ void simulate() {
 			// job has finished compute time
 			if(jobNeedsDisk(cpu.currentJob)) {
 				Disk* bestDisk = pickBestDisk();
-				arriveAtDisk(cpu.currentJob, bestDisk);
+				if(bestDisk != NULL) {arriveAtDisk(cpu.currentJob, bestDisk);}
 				removeJobFromCPU();
 			} else {
 				killJob(cpu.currentJob, cpu.queue);
 				cpu.currentJob = NULL;
 			}
 		}
+		diskCompute();
 	}
 	printf("simulation ended successfully\n");
 }
 
 Disk* pickBestDisk() {
-	Disk* bestDisk = &disks[0];
+	Disk* bestDisk = NULL;
 	size_t qc = INT_MAX;
 	for(size_t i = 0; i < diskCount; ++i) {
 		Disk* disk = &disks[i];
@@ -94,11 +94,12 @@ bool cpuDetermineJob() {
 		// check disks for finished jobs
 		for(size_t i = 0; i < diskCount; ++i) {
 			Disk* disk = &disks[i];
+			if(is_queue_empty(disk->queue)) {continue;}
 			pNode* qp = disk->queue; // queue position
 			size_t cpuQueueCount = size_queue(cpu.queue);
 			// return all finished jobs to cpu as long as cpu queue has enough free slot
 			Job* job = (Job*)qp->val;
-			while(job != NULL && job->burstTime == 0 && cpuQueueCount < cpu.queueSize) {
+			while(qp != NULL && job->burstTime == 0 && cpuQueueCount < cpu.queueSize) {
 				cpuEnter(job);
 				qp = qp->next;
 				job = (Job*)qp->val;
@@ -121,10 +122,20 @@ bool cpuDetermineJob() {
 void diskCompute() {
 	for(int i=0; i<diskCount; ++i) {
 		Disk* disk = &disks[i];
-		if(disk->currentJobPos->val == NULL) { // disk is idle
-			if(!is_queue_empty(disk->queue)) {
-				
+		if(disk->currentJobPos == NULL) { // if disk is idle
+			if(!is_queue_empty(disk->queue) && ((Job*)disk->queue->val)->burstTime > 0) { // if the disk queue contains a job AND the job is NOT finished
+				diskEnter(disk->queue, disk);
 			}
+		}
+
+
+		if(disk->currentJobPos != NULL) {
+			if(--((Job*)disk->currentJobPos->val)->burstTime <= 0) {
+				// job is completed on the disk
+				((Job*)disk->currentJobPos->val)->burstTime = myrandom(conf.CPU_MIN, conf.CPU_MAX);
+				disk->currentJobPos = disk->currentJobPos->next;
+			}
+
 		}
 	}
 }

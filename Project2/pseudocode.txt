@@ -1,0 +1,113 @@
+input = read stdin
+wordList = split(input, by: ' ')
+
+
+
+
+env_var["SHELL"] = get_executable_path()		/* depens on the OS */
+// On linux following can be used for C:
+readlink("/proc/self/exe", buf, bufsize)
+
+if(arguments[:-1] is '&'):
+	run_in_background(start_function: route, params: wordList)	/* using threads */
+else:
+	route(wordList)
+	
+
+
+
+
+
+
+function route(wordList):
+	command = wordList[0]                       	/* command is the first word */
+	arguments = wordList[1:]                    	/* all words except the first */
+	if(arguments.contains("|")):
+		arg_sets = arguments.split(by: "|")
+		for args in arg_sets:
+			route(args)
+			feed std_in of every route() to previous
+	if(arguments.contains(">")):
+		path = absolutePath(word after ">")
+		if(not dir_exists(path)):
+			print "file does not exist"
+		write output to file at path
+	if(arguments.contains(">>")):
+		path = absolutePath(word after ">>")
+		if(not dir_exists(path)):
+			print "file does not exist"
+		append output to file at path
+
+	switch(command):
+		case pause:
+			stdin_getline()							/* get next line from terminal hence ignore all input until enter is pressed */
+													/* don't prompt */
+		case else:
+			commandFunction(arguments: arguments)	/* go to appropriate command's function, pass arguments */
+			prompt()
+
+
+
+function prompt():
+	print(env_var["USER"], "$ ")
+
+// convert user input to absolute part. e.g.: ~/some_dir/some_file	~>	$(HOME)/some_dir/some_file
+function absolutePath(path):
+	if(path.char(0) is '~'):
+		leading = env_var["HOME"]
+	else if(path.char(0) is not '/')
+		leading = env_var["PWD"]
+	path = join_path(leading, path)
+	return path
+
+
+
+/* commands: */
+
+function cd(arguments):
+	arg = arguments[0]
+	if(arg is empty):
+		env_var["PWD"] = env_var["HOME"]
+	else:
+		path = absolutePath(arg)			/* absolutePath is a function defined above */
+		if(dir_exists(path)):
+			env_var["PWD"] = path
+		else:
+			print "directory does not exist!"
+
+
+function clr(arguments):
+	lines = env_var["LINES"]
+	cols = env_var["COLUMNS"]
+	for(line in lines):						/*	True clearing can only be done by the terminal app,		*/
+		for(col in cols):					/*	or at most if the app has API's. Next best option is	*/
+			print(whitespace)               /*	to fill the screen with whitespace						*/
+
+	// or, for example, unix terminal supports:
+	print("\033[H\033[2]")					/*	This will clear a unix terminal and the line buffer		*/
+											/*	will be reset (User will not be able to scroll back)	*/
+								
+			
+// List contents of directory
+function dir(arguments):
+	arg = arguments[0]
+	path = absolutePath(arg)
+	if(directory_exists(path) is false):
+		print "directory does not exist!"
+	array f = get_files_and_folders(path)	/* get files and folders with an OS API */
+	for file in files:
+		print(f.name, new_line)
+
+
+// List all environment variables
+function environ(arguments):
+	for v in env_var:
+		print(v, new_line)
+
+function echo(arguments):
+	for comment in arguments:				/* loop all arguments, print all of them */
+		print(comment, new_line)
+
+function quit(arguments):
+	process.exit()							/* exit the program with an OS API */
+
