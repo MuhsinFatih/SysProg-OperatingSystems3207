@@ -57,6 +57,19 @@ struct Context {
     int ebp;
 };
 
+
+// telemetry instances for each component
+typedef struct telemetry {
+    u_long totalTime;
+    u_long busyTime;
+    // resolution is the totalTime for each item:
+    u_long queueSum;
+    u_long responseTimeSum;
+    u_long responseCount;
+    u_long throughputSum; // number of jobs completed
+} Telemetry;
+
+
 typedef struct job
 {
     // struct Context context;
@@ -69,6 +82,7 @@ typedef struct cpu {
     pNode* queue;
     int queueSize;
     Job* currentJob;
+    Telemetry telemetry;
 } CPU;
 typedef struct disk {
     int id;
@@ -76,6 +90,7 @@ typedef struct disk {
     int queueSize;
     Job* currentJob;
     uint DISK_MIN, DISK_MAX;
+    Telemetry telemetry;
 } Disk;
 
 
@@ -85,3 +100,7 @@ double rand01(void);
 
 
 void log_event(size_t time, const char* event);
+
+
+
+

@@ -66,6 +66,32 @@ void simulate() {
 	printf("simulation ended successfully\n");
 }
 
+
+void initStats() {
+	cpu.telemetry = (Telemetry) {0};
+	for(int i=0; i<diskCount; ++i) {
+		disks[i].telemetry = (Telemetry) {0};
+	}
+}
+
+void recordCommonStats() {
+	++cpu.telemetry.totalTime;
+	if(cpu.currentJob != NULL) {
+		++cpu.telemetry.busyTime;
+	}
+	cpu.telemetry.queueSum += size_queue(cpu.queue);
+	for(size_t i=0; i<diskCount; ++i) {
+		Disk* disk = &disks[i];
+		++disk->telemetry.totalTime;
+		if(disk->currentJob != NULL) {
+			++disk->telemetry.busyTime;
+		}
+		disk->telemetry.queueSum += size_queue(disk->queue);
+	}
+}
+
+
+
 Disk* pickBestDisk() {
 	Disk* bestDisk = NULL;
 	size_t qc = INT_MAX;
@@ -280,6 +306,7 @@ int main(int argc, char const *argv[])
 
 	printf("there are %i items in the queue\n", size_queue(cpu.queue));
 	printf("starting simulation\n");
+	initStats();
 	simulate();
 
 	

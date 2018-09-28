@@ -144,3 +144,8 @@ void log_event(size_t time, const char* event) {
     sprintf(buffer, "at time %i: [%s]", time, event);
     printf("%s\n", buffer);
 }
+
+
+void finalizeStats(Telemetry telemetry) {
+    
+}
