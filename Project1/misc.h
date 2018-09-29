@@ -109,6 +109,8 @@ double rand01(void);
 
 extern char* log_buffer; // All log events will be concatenated here
 void log_event(size_t time, const char* event);
-void finalizeStats(Telemetry* telemetry, Stats* buffer);
-
+void log(const char* event);
 void initLog();
+void writeLogToFile(const char* path);
+
+void finalizeStats(Telemetry* telemetry, Stats* buffer);

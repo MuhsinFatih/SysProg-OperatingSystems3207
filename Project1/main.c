@@ -37,6 +37,7 @@ size_t diskCount;
 	void returnFromDisk(Job* job, Disk* disk);
 	void recordCommonStats();
 	void dumpStats(Telemetry **t, size_t tSize);
+	void logStats(const char* deviceName, Telemetry* stats);
 /* End forward declerations */
 
 void simulate() {
@@ -324,34 +325,84 @@ int main(int argc, char const *argv[])
 	printf("starting simulation\n");
 	initLog();
 	initStats();
-	
+	log("-------------------------------------------------\n"	
+		"|                  Events:                      |\n"
+		"-------------------------------------------------\n"
+		);
 	simulate();
 
 	Telemetry* t[3] = {&cpu.telemetry,&disk1.telemetry,&disk2.telemetry};
 	size_t tSize = sizeof(t)/sizeof(t[0]);
 	
-	dumpStats(t, tSize);
+	// dumpStats(t, tSize);
+	
+	log("\n\n\n\n");
+	log("-------------------------------------------------\n"	
+		"|                  Statistics:                  |\n"
+		"-------------------------------------------------\n"
+		);
+
+	
+	logStats("CPU", &cpu.telemetry);
+	for(size_t i=0; i<diskCount; ++i) {
+		Disk* disk = disks[i];
+		char diskname[20];
+		sprintf(diskname, "disk%i", disk->id);
+		logStats(diskname, &disk->telemetry);
+	}
+	writeLogToFile("stats.log");
 
 	return 0;
 }
 
+
+void logStats(const char* deviceName, Telemetry* t) {
+	char buffer[500];
+	Stats* stats = malloc(sizeof(Stats));
+	finalizeStats(t, stats);
+	sprintf(buffer,
+			"Stats for %s:\n\n"
+			"averageQueueSize: %f\n"
+			"utilization: %f\n"
+			"maxResponseTime: %lu\n"
+			"averageResponseTime: %f\n"
+			"throughput: %f\n"
+			"--------------------\n",
+			deviceName,
+			stats->averageQueueSize,
+			stats->utilization,
+			stats->maxResponseTime,
+			stats->averageResponseTime,
+			stats->throughput);
+	log(&buffer);
+}
+
+
+
+
+
+
+
+
+
 void dumpStats(Telemetry **t, size_t tSize) {
 
-	for(size_t i=0; i<tSize; ++i) {
-		printf(	"Telemetry:\n"
-				"-----------------------------------------\n"
-				"totalTime: %lu\n"
-				"busyTime: %lu\n"
-				"queueSum: %lu\n"
-				"responseTimeSum: %lu\n"
-				"responseCount: %lu\n",
-				t[i]->totalTime,
-				t[i]->busyTime,
-				t[i]->queueSum,
-				t[i]->responseTimeSum,
-				t[i]->responseCount);
+	if(false){ // for debugging
+		for(size_t i=0; i<tSize; ++i) {
+			printf(	"Telemetry:\n"
+					"-----------------------------------------\n"
+					"totalTime: %lu\n"
+					"busyTime: %lu\n"
+					"queueSum: %lu\n"
+					"responseTimeSum: %lu\n"
+					"responseCount: %lu\n",
+					t[i]->totalTime,
+					t[i]->busyTime,
+					t[i]->queueSum,
+					t[i]->responseTimeSum,
+					t[i]->responseCount);
+		}
 	}
-
 	Stats* stats = malloc(sizeof(Stats) * tSize);
 	for(size_t i=0; i<tSize; ++i) {
 		finalizeStats(t[i], &stats[i]);

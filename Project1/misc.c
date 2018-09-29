@@ -138,6 +138,14 @@ double rand01(void) {
     return(random()/(double)RAND_MAX);
 }
 
+void writeLogToFile(const char* path) {
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+
+    assert(fd >= 0);
+    int rc = write(fd, log_buffer, strlen(log_buffer)); 
+    assert(rc == strlen(log_buffer)); printf("saved log to file: %s\n", path); fsync(fd);
+}
+
 
 char* log_buffer; // buffer to log all events
 size_t log_buffer_allocated_size = 0; // size of memory allocated to log_buffer, to keep track of dynamic allocation
@@ -154,16 +162,26 @@ void appendLog(char* str) {
     strcat(log_buffer, str); // concatenate strings
 }
 
-void log_event(size_t time, const char* event) {
-    char buffer[80];
-    sprintf(buffer, "at time %lu: [%s]", time, event);
-    printf("%s\n", buffer);
+void log(const char* event) {
+    char* buffer = (char*) malloc(strlen(event) * sizeof(char) + 30);
+    sprintf(buffer, "%s\n", event);
+    printf("%s", buffer);
     appendLog(buffer);
+    free(buffer);
+}
+
+void log_event(size_t time, const char* event) {
+    char* buffer = (char*) malloc(strlen(event) * sizeof(char) + 30);
+    sprintf(buffer, "at time %lu: [%s]\n", time, event);
+    printf("%s", buffer);
+    appendLog(buffer);
+    free(buffer);
 }
 
 
 void initLog() {
-    log_buffer = malloc(300 & sizeof(char));
+    log_buffer = malloc(300 * sizeof(char));
+    strcpy(log_buffer,"");
     log_buffer_allocated_size = 300;
 }
 
