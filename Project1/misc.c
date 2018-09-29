@@ -139,10 +139,32 @@ double rand01(void) {
 }
 
 
+char* log_buffer; // buffer to log all events
+size_t log_buffer_allocated_size = 0; // size of memory allocated to log_buffer, to keep track of dynamic allocation
+size_t log_buffer_multiplier = 10; // size of memory that will be added when reallocating will be (this number)x(incoming string size)
+void appendLog(char* str) {
+    size_t len = strlen(str);
+    size_t buffer_len = strlen(log_buffer);
+
+    // dynamically reallocate log buffer when necessary
+    if(len + buffer_len > log_buffer_allocated_size) {
+        log_buffer_allocated_size += log_buffer_multiplier * len;
+        log_buffer = (char*) realloc(log_buffer, log_buffer_allocated_size);
+    }
+    strcat(log_buffer, str); // concatenate strings
+}
+
 void log_event(size_t time, const char* event) {
     char buffer[80];
     sprintf(buffer, "at time %lu: [%s]", time, event);
     printf("%s\n", buffer);
+    appendLog(buffer);
+}
+
+
+void initLog() {
+    log_buffer = malloc(300 & sizeof(char));
+    log_buffer_allocated_size = 300;
 }
 
 

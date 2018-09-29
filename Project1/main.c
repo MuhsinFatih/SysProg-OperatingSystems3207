@@ -284,8 +284,8 @@ void killJob(Job* job, pNode *queuePos) {
 
 
 int main(int argc, char const *argv[])
-{	
-	printf("hello!\n");
+{
+	
 
 	char *buffer = NULL;
 	conf = readConf("conf.txt");
@@ -321,9 +321,10 @@ int main(int argc, char const *argv[])
 
 
 
-	printf("there are %lu items in the queue\n", size_queue(cpu.queue));
 	printf("starting simulation\n");
+	initLog();
 	initStats();
+	
 	simulate();
 
 	Telemetry* t[3] = {&cpu.telemetry,&disk1.telemetry,&disk2.telemetry};
@@ -334,9 +335,6 @@ int main(int argc, char const *argv[])
 	return 0;
 }
 
-void asdf(Telemetry*** t) {
-
-}
 void dumpStats(Telemetry **t, size_t tSize) {
 
 	for(size_t i=0; i<tSize; ++i) {
