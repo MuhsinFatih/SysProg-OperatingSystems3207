@@ -141,11 +141,21 @@ double rand01(void) {
 
 void log_event(size_t time, const char* event) {
     char buffer[80];
-    sprintf(buffer, "at time %i: [%s]", time, event);
+    sprintf(buffer, "at time %lu: [%s]", time, event);
     printf("%s\n", buffer);
 }
 
 
-void finalizeStats(Telemetry telemetry) {
-    
+void finalizeStats(Telemetry* telemetry, Stats* stats) {
+    stats->averageQueueSize = (double)telemetry->queueSum / telemetry->totalTime;
+    stats->utilization = (double)telemetry->busyTime / telemetry->totalTime;
+    stats->maxResponseTime = (double)telemetry->maxResponseTime;
+    stats->averageResponseTime = (double)telemetry->responseTimeSum / telemetry->responseCount;
+    stats->throughput = (double)telemetry->responseCount / telemetry->totalTime;
+}
+void updateResponseTime(size_t time, Telemetry* t){
+    if(time > t->maxResponseTime)
+        t->maxResponseTime = time;
+    t->responseTimeSum += time;
+    ++t->responseCount;
 }

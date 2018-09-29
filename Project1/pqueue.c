@@ -68,7 +68,7 @@ bool is_queue_empty(pNode* head) {
     return head == NULL;
 }
 
-int size_queue(pNode* head) {
+size_t size_queue(pNode* head) {
     int size = 0;
     pNode* start = head;
     while(start != NULL){

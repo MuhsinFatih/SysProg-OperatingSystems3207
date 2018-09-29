@@ -64,32 +64,41 @@ typedef struct telemetry {
     u_long busyTime;
     // resolution is the totalTime for each item:
     u_long queueSum;
+    u_long maxResponseTime;
     u_long responseTimeSum;
-    u_long responseCount;
-    u_long throughputSum; // number of jobs completed
+    u_long responseCount; // number of jobs completed
 } Telemetry;
 
+typedef struct stats {
+    double averageQueueSize;
+    double utilization;
+    size_t maxResponseTime;
+    double averageResponseTime;
+    double throughput;
+} Stats;
+
+void updateResponseTime(size_t time, Telemetry* t);
 
 typedef struct job
 {
     // struct Context context;
-    int id;
-    int arrivalTime;
-    int burstTime;
+    size_t id;
+    size_t arrivalTime;
+    size_t burstTime;
 } Job;
 
 typedef struct cpu {
     pNode* queue;
-    int queueSize;
+    size_t queueSize;
     Job* currentJob;
     Telemetry telemetry;
 } CPU;
 typedef struct disk {
-    int id;
+    size_t id;
     pNode* queue;
-    int queueSize;
+    size_t queueSize;
     Job* currentJob;
-    uint DISK_MIN, DISK_MAX;
+    size_t DISK_MIN, DISK_MAX;
     Telemetry telemetry;
 } Disk;
 
@@ -100,7 +109,7 @@ double rand01(void);
 
 
 void log_event(size_t time, const char* event);
-
+void finalizeStats(Telemetry* telemetry, Stats* buffer);
 
 
 

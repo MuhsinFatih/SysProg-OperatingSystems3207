@@ -19,7 +19,7 @@ size_t simTime = 0;
 CPU cpu;
 Disk disk1;
 Disk disk2;
-Disk* disks;
+Disk** disks;
 size_t diskCount;
 /* Forward declerations */
 	void killJob(Job* job, pNode *queuePos);
@@ -35,12 +35,14 @@ size_t diskCount;
 	Disk* pickBestDisk();
 	void arriveAtCPU_end(Job* job);
 	void returnFromDisk(Job* job, Disk* disk);
+	void recordCommonStats();
+	void dumpStats(Telemetry **t, size_t tSize);
 /* End forward declerations */
 
 void simulate() {
 	size_t computeTime = 0;
 
-	while(++simTime < conf.FIN_TIME) {
+	while(++simTime <= conf.FIN_TIME) {
 		userActivity(); // adds processes to the queue at random times to simulate process
 		/*
 			- if there is job in queue, check its status, process it.
@@ -49,8 +51,8 @@ void simulate() {
 			- if there is no finished job in disks, fetch the next job to cpu queue
 			- if there is no job in the queue, wait for one to show up. stay idle (do nothong)
 		*/
-		if(!cpuDetermineJob()) {continue; /* cpu is idle */}
-		if(--cpu.currentJob->burstTime <= 0) {
+		if(!cpuDetermineJob()) {/* cpu is idle */}
+		else if(--cpu.currentJob->burstTime <= 0) {
 			// job has finished compute time
 			if(jobNeedsDisk(cpu.currentJob)) {
 				Disk* bestDisk = pickBestDisk();
@@ -62,6 +64,7 @@ void simulate() {
 			}
 		}
 		diskCompute();
+		recordCommonStats();
 	}
 	printf("simulation ended successfully\n");
 }
@@ -70,7 +73,7 @@ void simulate() {
 void initStats() {
 	cpu.telemetry = (Telemetry) {0};
 	for(int i=0; i<diskCount; ++i) {
-		disks[i].telemetry = (Telemetry) {0};
+		disks[i]->telemetry = (Telemetry) {0};
 	}
 }
 
@@ -81,7 +84,7 @@ void recordCommonStats() {
 	}
 	cpu.telemetry.queueSum += size_queue(cpu.queue);
 	for(size_t i=0; i<diskCount; ++i) {
-		Disk* disk = &disks[i];
+		Disk* disk = disks[i];
 		++disk->telemetry.totalTime;
 		if(disk->currentJob != NULL) {
 			++disk->telemetry.busyTime;
@@ -96,8 +99,8 @@ Disk* pickBestDisk() {
 	Disk* bestDisk = NULL;
 	size_t qc = INT_MAX;
 	for(size_t i = 0; i < diskCount; ++i) {
-		Disk* disk = &disks[i];
-		auto diskQueueCount = size_queue(disk->queue);
+		Disk* disk = disks[i];
+		size_t diskQueueCount = size_queue(disk->queue);
 		if(disk->queueSize - diskQueueCount && diskQueueCount < qc) { // check if there is empty slot in the queue AND determine shortest current queue
 			bestDisk = disk;
 			qc = diskQueueCount;
@@ -108,11 +111,21 @@ Disk* pickBestDisk() {
 
 
 void removeJobFromDisk(Disk* disk) {
+	// collect telemetry
+	size_t responseTime = simTime - disk->currentJob->arrivalTime;
+	updateResponseTime(responseTime, &disk->telemetry);
+
+	// remove job from disk
 	disk->queue = disk->queue->next; // increment disk queue pointer
 	disk->currentJob = NULL;
 }
 void removeJobFromCPU() {
-	cpu.queue = cpu.queue->next;
+	// collect telemetry
+	size_t responseTime = simTime - cpu.currentJob->arrivalTime;
+	updateResponseTime(responseTime, &cpu.telemetry);
+
+	// remove job from cpu
+	cpu.queue = cpu.queue->next; // increment cpu queue pointer
 	cpu.currentJob = NULL;
 }
 
@@ -125,12 +138,12 @@ bool cpuDetermineJob() {
 		
 		// check disks for finished jobs
 		for(size_t i = 0; i < diskCount; ++i) {
-			Disk* disk = &disks[i];
+			Disk* disk = disks[i];
 			if(is_queue_empty(disk->queue)) {continue;}
 
 			Job* job = (Job*)disk->queue->val;
 			size_t cpuQueueCount = size_queue(cpu.queue);
-
+			
 			if(job->burstTime <= 0 && cpuQueueCount < cpu.queueSize) {
 				job->burstTime = myrandom(conf.CPU_MIN, conf.CPU_MAX);
 				returnFromDisk(job, disk);
@@ -151,14 +164,14 @@ bool cpuDetermineJob() {
 
 void diskCompute() {
 	for(int i=0; i<diskCount; ++i) {
-		Disk* disk = &disks[i];
+		Disk* disk = disks[i];
 		if(disk->currentJob == NULL) {
 			if(!is_queue_empty(disk->queue) && ((Job*)disk->queue->val)->burstTime > 0) { // if the disk queue contains a job AND the job is NOT finished
 				diskEnter((Job*)disk->queue->val, disk);
 			}
 		}
 
-		if(disk->currentJob != NULL && disk->currentJob->burstTime >= 0) { // wait for cpu if job is finished
+		if(disk->currentJob != NULL && disk->currentJob->burstTime > 0) { // wait for cpu if job is finished
 			--disk->currentJob->burstTime; // disk computation
 		}
 	
@@ -168,17 +181,18 @@ void diskCompute() {
 void diskEnter(Job* job, Disk* disk) {
 	disk->currentJob = job;
 	char buffer[80];
-	sprintf(buffer, "job %i entered disk%i (disk compute time:%i)", job->id, disk->id, job->burstTime);
+	sprintf(buffer, "job %lu entered disk%lu (disk compute time:%lu)", job->id, disk->id, job->burstTime);
 	log_event(simTime, buffer);
 }
 
 void arriveAtDisk(Job* job, Disk* disk) {
+	job->arrivalTime = simTime;
 	job->burstTime = myrandom(disk->DISK_MIN, conf.DISK1_MAX);
 	
 	push_queue(&disk->queue, job, job->arrivalTime);
 
 	char buffer[80];
-	sprintf(buffer, "job %i arrived at disk%i_queue", job->id, disk->id);
+	sprintf(buffer, "job %lu arrived at disk%lu_queue", job->id, disk->id);
 	log_event(simTime, buffer);
 
 }
@@ -186,7 +200,7 @@ void arriveAtDisk(Job* job, Disk* disk) {
 void cpuEnter(Job* job) {
 	cpu.currentJob = job;
 	char buffer[80];
-	sprintf(buffer, "job %i entered CPU (burst time:%i)", job->id, job->burstTime);
+	sprintf(buffer, "job %lu entered CPU (burst time:%lu)", job->id, job->burstTime);
 	log_event(simTime, buffer);
 }
 
@@ -196,9 +210,10 @@ bool jobNeedsDisk(Job* job) {
 }
 
 void arriveAtCPU(Job* job) {
+	job->arrivalTime = simTime;
 	push_queue(&cpu.queue, job, job->arrivalTime);
 	char buffer[80];
-	sprintf(buffer, "job %i arrived at CPU_queue", job->id);
+	sprintf(buffer, "job %lu arrived at CPU_queue", job->id);
 	log_event(job->arrivalTime, buffer);
 }
 
@@ -206,15 +221,16 @@ void returnFromDisk(Job* job, Disk* disk) {
 	removeJobFromDisk(disk);
 	push_queue_end(&cpu.queue, job);
 	char buffer[80];
-	sprintf(buffer, "job %i returned from disk %i to CPU_queue", job->id, disk->id);
+	sprintf(buffer, "job %lu returned from disk %lu to CPU_queue", job->id, disk->id);
 	log_event(simTime, buffer);
 }
 
 
 void arriveAtCPU_end(Job* job) {
+	job->arrivalTime = simTime;
 	push_queue_end(&cpu.queue, job);
 	char buffer[80];
-	sprintf(buffer, "job %i arrived at CPU_queue", job->id);
+	sprintf(buffer, "job %lu arrived at CPU_queue", job->id);
 	log_event(job->arrivalTime, buffer);
 }
 
@@ -224,7 +240,7 @@ size_t upcomingJobsSize;
 void userActivity() {
 	if(!is_queue_empty(upcomingJobs)) { // add more jobs only if current batch is empty
 		while (((Job*)upcomingJobs->val)->arrivalTime <= simTime) {
-			auto x = ((Job*)upcomingJobs->val)->arrivalTime;
+			size_t x = ((Job*)upcomingJobs->val)->arrivalTime;
 			// if a job in the upcomingJobs queue is supposed to arrive, remove it from upcomingjobs and add it to cpu queue
 			Job* job = upcomingJobs->val;
 			upcomingJobs = upcomingJobs->next; // move the head to the next without freeing the head
@@ -234,7 +250,7 @@ void userActivity() {
 	} else {
 		if(size_queue(cpu.queue) >= cpu.queueSize) {return;}
 		// fill the upcoming job queue
-		for(int i=0; i<upcomingJobsSize; ++i) {
+		for(int i=0; i<myrandom(1,upcomingJobsSize); ++i) {
 			pNode* current = upcomingJobs;
 			while(current != NULL) {
 				current = current->next;
@@ -260,7 +276,7 @@ Job* generateJob() {
 
 void killJob(Job* job, pNode *queuePos) {
 	char buffer[80];
-	sprintf(buffer, "job %i destroyed", job->id);
+	sprintf(buffer, "job %lu destroyed", job->id);
 	log_event(simTime, buffer);
 	pop_queue(&cpu.queue);
 	cpu.currentJob = NULL;
@@ -298,18 +314,62 @@ int main(int argc, char const *argv[])
 		.DISK_MAX = conf.DISK2_MAX
 	};
 
-	disks = (Disk[]){disk1, disk2};
+	disks = (Disk*[]){&disk1, &disk2};
+	Disk* diskk = disks[0];
 	diskCount = 2;
 	upcomingJobsSize = cpu.queueSize;
 
 
 
-	printf("there are %i items in the queue\n", size_queue(cpu.queue));
+	printf("there are %lu items in the queue\n", size_queue(cpu.queue));
 	printf("starting simulation\n");
 	initStats();
 	simulate();
 
+	Telemetry* t[3] = {&cpu.telemetry,&disk1.telemetry,&disk2.telemetry};
+	size_t tSize = sizeof(t)/sizeof(t[0]);
 	
+	dumpStats(t, tSize);
 
 	return 0;
+}
+
+void asdf(Telemetry*** t) {
+
+}
+void dumpStats(Telemetry **t, size_t tSize) {
+
+	for(size_t i=0; i<tSize; ++i) {
+		printf(	"Telemetry:\n"
+				"-----------------------------------------\n"
+				"totalTime: %lu\n"
+				"busyTime: %lu\n"
+				"queueSum: %lu\n"
+				"responseTimeSum: %lu\n"
+				"responseCount: %lu\n",
+				t[i]->totalTime,
+				t[i]->busyTime,
+				t[i]->queueSum,
+				t[i]->responseTimeSum,
+				t[i]->responseCount);
+	}
+
+	Stats* stats = malloc(sizeof(Stats) * tSize);
+	for(size_t i=0; i<tSize; ++i) {
+		finalizeStats(t[i], &stats[i]);
+		printf(	"-------------------------------------\n"
+				"Stats:\n"
+				"--------\n"
+				"averageQueueSize: %f\n"
+				"utilization: %f\n"
+				"maxResponseTime: %lu\n"
+				"averageResponseTime: %f\n"
+				"throughput: %f\n",
+				stats[i].averageQueueSize,
+				stats[i].utilization,
+				stats[i].maxResponseTime,
+				stats[i].averageResponseTime,
+				stats[i].throughput);
+	}
+
 }
