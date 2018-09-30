@@ -67,7 +67,7 @@ void simulate() {
 		diskCompute();
 		recordCommonStats();
 	}
-	printf("simulation ended successfully\n");
+	log("simulation ended successfully");
 }
 
 
@@ -80,17 +80,21 @@ void initStats() {
 
 void recordCommonStats() {
 	++cpu.telemetry.totalTime;
-	if(cpu.currentJob != NULL) {
+	if(cpu.currentJob != NULL)
 		++cpu.telemetry.busyTime;
-	}
-	cpu.telemetry.queueSum += size_queue(cpu.queue);
+	size_t qs = size_queue(cpu.queue);
+	if(qs > cpu.telemetry.maxQueueSize)
+		cpu.telemetry.maxQueueSize = qs;
+	cpu.telemetry.queueSum += qs;
 	for(size_t i=0; i<diskCount; ++i) {
 		Disk* disk = disks[i];
 		++disk->telemetry.totalTime;
-		if(disk->currentJob != NULL) {
+		if(disk->currentJob != NULL)
 			++disk->telemetry.busyTime;
-		}
-		disk->telemetry.queueSum += size_queue(disk->queue);
+		size_t qs = size_queue(disk->queue);
+		if(qs > disk->telemetry.maxQueueSize)
+			disk->telemetry.maxQueueSize = qs;
+		disk->telemetry.queueSum += qs;
 	}
 }
 
@@ -181,8 +185,8 @@ void diskCompute() {
 
 void diskEnter(Job* job, Disk* disk) {
 	disk->currentJob = job;
-	char buffer[80];
-	sprintf(buffer, "job %lu entered disk%lu (disk compute time:%lu)", job->id, disk->id, job->burstTime);
+	char buffer[100];
+	sprintf(buffer, "job %lu %15s  disk%lu %20s(disk compute time:%lu)", job->id, "entered", disk->id, "", job->burstTime);
 	log_event(simTime, buffer);
 }
 
@@ -193,15 +197,15 @@ void arriveAtDisk(Job* job, Disk* disk) {
 	push_queue(&disk->queue, job, job->arrivalTime);
 
 	char buffer[80];
-	sprintf(buffer, "job %lu arrived at disk%lu_queue", job->id, disk->id);
+	sprintf(buffer, "job %lu %15s  disk%lu_queue", job->id, "arrived at", disk->id);
 	log_event(simTime, buffer);
 
 }
 
 void cpuEnter(Job* job) {
 	cpu.currentJob = job;
-	char buffer[80];
-	sprintf(buffer, "job %lu entered CPU (burst time:%lu)", job->id, job->burstTime);
+	char buffer[100];
+	sprintf(buffer, "job %lu %15s  CPU   %20s(compute time:%lu)", job->id, "entered", "", job->burstTime);
 	log_event(simTime, buffer);
 }
 
@@ -214,7 +218,7 @@ void arriveAtCPU(Job* job) {
 	job->arrivalTime = simTime;
 	push_queue(&cpu.queue, job, job->arrivalTime);
 	char buffer[80];
-	sprintf(buffer, "job %lu arrived at CPU_queue", job->id);
+	sprintf(buffer, "job %lu %15s  CPU_queue", job->id, "arrived at");
 	log_event(job->arrivalTime, buffer);
 }
 
@@ -222,7 +226,7 @@ void returnFromDisk(Job* job, Disk* disk) {
 	removeJobFromDisk(disk);
 	push_queue_end(&cpu.queue, job);
 	char buffer[80];
-	sprintf(buffer, "job %lu returned from disk %lu to CPU_queue", job->id, disk->id);
+	sprintf(buffer, "job %lu %15s  disk%lu to CPU_queue", job->id, "returned from", disk->id);
 	log_event(simTime, buffer);
 }
 
@@ -231,35 +235,21 @@ void arriveAtCPU_end(Job* job) {
 	job->arrivalTime = simTime;
 	push_queue_end(&cpu.queue, job);
 	char buffer[80];
-	sprintf(buffer, "job %lu arrived at CPU_queue", job->id);
+	sprintf(buffer, "job %lu %10s  CPU_queue",  job->id, "arrived at");
 	log_event(job->arrivalTime, buffer);
 }
 
-pNode* upcomingJobs;
-size_t upcomingJobsSize;
+Job* upcomingJob;
 // This method doesn't represent anything about cpu's workings
+// pseudo function to simulate user activity
 void userActivity() {
-	if(!is_queue_empty(upcomingJobs)) { // add more jobs only if current batch is empty
-		while (((Job*)upcomingJobs->val)->arrivalTime <= simTime) {
-			size_t x = ((Job*)upcomingJobs->val)->arrivalTime;
-			// if a job in the upcomingJobs queue is supposed to arrive, remove it from upcomingjobs and add it to cpu queue
-			Job* job = upcomingJobs->val;
-			upcomingJobs = upcomingJobs->next; // move the head to the next without freeing the head
-			arriveAtCPU(job);
-			if(is_queue_empty(upcomingJobs)) {break;}
-		}
-	} else {
-		if(size_queue(cpu.queue) >= cpu.queueSize) {return;}
-		// fill the upcoming job queue
-		for(int i=0; i<myrandom(1,upcomingJobsSize); ++i) {
-			pNode* current = upcomingJobs;
-			while(current != NULL) {
-				current = current->next;
-			}
-			Job* newJob = generateJob();
-			// priority of newJob is its arrival time
-			push_queue(&upcomingJobs, newJob, newJob->arrivalTime);
-		}
+	if(upcomingJob == NULL) {
+		upcomingJob = generateJob();
+	}
+	// push new jobs to CPU queue between ARRIVE_MIN and ARRIVE_max
+	if(upcomingJob->arrivalTime <= simTime && size_queue(cpu.queue) < cpu.queueSize) {
+		arriveAtCPU(upcomingJob);
+		upcomingJob = NULL; // clear the pointer after use
 	}
 }
 size_t jobCount = 0;
@@ -277,7 +267,7 @@ Job* generateJob() {
 
 void killJob(Job* job, pNode *queuePos) {
 	char buffer[80];
-	sprintf(buffer, "job %lu destroyed", job->id);
+	sprintf(buffer, "job %lu %15s", job->id, "terminated");
 	log_event(simTime, buffer);
 	pop_queue(&cpu.queue);
 	cpu.currentJob = NULL;
@@ -295,7 +285,7 @@ int main(int argc, char const *argv[])
 
 	cpu = (CPU){
 		.queue = NULL,
-		.queueSize = 5,
+		.queueSize = 3,
 		.currentJob = NULL
 	};
 	disk1 = (Disk) {
@@ -318,7 +308,6 @@ int main(int argc, char const *argv[])
 	disks = (Disk*[]){&disk1, &disk2};
 	Disk* diskk = disks[0];
 	diskCount = 2;
-	upcomingJobsSize = cpu.queueSize;
 
 
 
@@ -334,6 +323,7 @@ int main(int argc, char const *argv[])
 	Telemetry* t[3] = {&cpu.telemetry,&disk1.telemetry,&disk2.telemetry};
 	size_t tSize = sizeof(t)/sizeof(t[0]);
 	
+
 	// dumpStats(t, tSize);
 	
 	log("\n\n\n\n");
@@ -364,6 +354,7 @@ void logStats(const char* deviceName, Telemetry* t) {
 			"Stats for %s:\n\n"
 			"averageQueueSize: %f\n"
 			"utilization: %f\n"
+			"maxQueueSize: %lu\n"
 			"maxResponseTime: %lu\n"
 			"averageResponseTime: %f\n"
 			"throughput: %f\n"
@@ -371,6 +362,7 @@ void logStats(const char* deviceName, Telemetry* t) {
 			deviceName,
 			stats->averageQueueSize,
 			stats->utilization,
+			stats->maxQueueSize,
 			stats->maxResponseTime,
 			stats->averageResponseTime,
 			stats->throughput);

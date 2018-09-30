@@ -172,7 +172,7 @@ void log(const char* event) {
 
 void log_event(size_t time, const char* event) {
     char* buffer = (char*) malloc(strlen(event) * sizeof(char) + 30);
-    sprintf(buffer, "at time %lu: [%s]\n", time, event);
+    sprintf(buffer, "[at time %lu]: %s\n", time, event);
     printf("%s", buffer);
     appendLog(buffer);
     free(buffer);
@@ -189,7 +189,8 @@ void initLog() {
 void finalizeStats(Telemetry* telemetry, Stats* stats) {
     stats->averageQueueSize = (double)telemetry->queueSum / telemetry->totalTime;
     stats->utilization = (double)telemetry->busyTime / telemetry->totalTime;
-    stats->maxResponseTime = (double)telemetry->maxResponseTime;
+    stats->maxQueueSize = telemetry->maxQueueSize;
+    stats->maxResponseTime = telemetry->maxResponseTime;
     stats->averageResponseTime = (double)telemetry->responseTimeSum / telemetry->responseCount;
     stats->throughput = (double)telemetry->responseCount / telemetry->totalTime;
 }

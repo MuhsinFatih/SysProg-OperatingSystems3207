@@ -64,17 +64,19 @@ typedef struct telemetry {
     u_long busyTime;
     // resolution is the totalTime for each item:
     u_long queueSum;
+    u_long maxQueueSize;
     u_long maxResponseTime;
     u_long responseTimeSum;
-    u_long responseCount; // number of jobs completed
+    u_long responseCount;   // number of jobs completed
 } Telemetry;
 
 typedef struct stats {
-    double averageQueueSize;
-    double utilization;
-    size_t maxResponseTime;
-    double averageResponseTime;
-    double throughput;
+    size_t maxQueueSize;        // maximum queue size
+    double averageQueueSize;    // average queue size
+    double utilization;         // time_the_server_is_busy/total_time
+    size_t maxResponseTime;     //     max difference in time between the job arrival at a server and the completion of the job at the server
+    double averageResponseTime; // average difference in time between the job arrival at a server and the completion of the job at the server
+    double throughput;          // number of jobs completed per unit of time
 } Stats;
 
 void updateResponseTime(size_t time, Telemetry* t);
