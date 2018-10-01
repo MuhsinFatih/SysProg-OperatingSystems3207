@@ -19,6 +19,7 @@ conf.txt # configuration file for the simulation. Program takes arguments ONLY f
 ```
 
 Output Files:
+
 ```bash
 stats.log # Statistics for each resource and significant events will be logged in stats.log
 ```
@@ -126,4 +127,21 @@ Disks are checked for finished jobs. If there are any, and if the `cpu queue` is
 If the CPU is idle, the next available job in the queue enters the CPU. If no job is available, CPU stays idle and the function returns `false`. Otherwise, the return value is `true`
 
 If the CPU is not idle, current job is processed.  
-If the job has finished its time on cpu, there is an 80% chance that the job will arrive at a disk 
+If the job has finished its time on cpu, there is an 80% chance by default (can be changed via conf.txt) that the job will arrive at a disk, which is determined by `jobNeedsDisk()`.  
+
+If the job needs to use a disk, the most suitable disk is chosen (in this case, the disk with least jobs in the queue), and the job arrives at this disk and leaves the cpu queue. If there is no suitable disk, CPU will stay idle until one of the disks is available. When a disk is available, there will be a **deadlock** because both devices (cpu and the disk) will be waiting for each other to empty a slot. This deadlock check is implemented in `cpuDetermineJob()` and will be elaborated on shortly.  
+If the job doesn't need to use a disk, it will be terminated (`killJob()`)
+
+After handling the leaving of the job from cpu, `discCompute()` will simulate disk activity. If no job is currently being processed, the next available job in the disk queue will enter the disk. Current job's remaining computation time will be decremented by one. If the job has finished, disk will stay idle until cpu fetches the finished job.
+
+`recordCommonStats()` will iterate all devices and record telemetry data
+
+### Deadlock resolution
+
+As mentioned above, a deadlock will happen when the queues of both CPU and all disks are full. The CPU and one or both of the disks will be waiting for each other to free up space in their respective queues. The resolution for this is in the function cpuDetermineJob (the resolution is annotated with `<?deadlock>`) where:  
+If both the cpu and one of the disks have finished a job and are full in queue, one extra job will be accepted into the disk temporarily and the job on cpu will arrive at the disk, releasing a slot in the cpu queue. The finished job on disk will then be returned to the cpu, returning to the normal maximum queue size.
+
+The simulation goes on until `simTime` arrives at `conf.FIN_TIME`.
+
+### Statistics
+Line annotated by `<?telemetry>`, the telemetry objects of each device are passed into `logStats()`, and `finalizeStats()` function calculates the statistics based on the telemetry. The statistics are then added to the log file after the significant events

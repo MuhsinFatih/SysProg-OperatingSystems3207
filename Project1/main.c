@@ -62,7 +62,6 @@ void simulate() {
 					removeJobFromCPU();
 				} else {
 					// leave the job on the CPU. The next cpuDetermineJob() will move this job to a disk to prevent deadlock
-					int foo = 5;
 				}
 			} else {
 				killJob(cpu.currentJob, cpu.queue);
@@ -159,7 +158,7 @@ bool cpuDetermineJob() {
 			if(cpuQueueCount < cpu.queueSize) {
 				job->burstTime = myrandom(conf.CPU_MIN, conf.CPU_MAX);
 				returnFromDisk(job, disk);
-			} else if(cpu.currentJob != NULL && cpu.currentJob->burstTime <= 0) { // deadlock, each job is waiting for other to exit the resource. Swap them
+			} else if(cpu.currentJob != NULL && cpu.currentJob->burstTime <= 0) { // <?deadlock> deadlock, each job is waiting for other to exit the resource. Swap them
 				job->burstTime = myrandom(conf.CPU_MIN, conf.CPU_MAX);
 				arriveAtDisk(cpu.currentJob, disk);
 				removeJobFromCPU();
@@ -191,12 +190,14 @@ bool cpuFetchNextJob() {
 void diskCompute() {
 	for(int i=0; i<diskCount; ++i) {
 		Disk* disk = disks[i];
+		// move available jobs to disk from disk queue
 		if(disk->currentJob == NULL) {
 			if(!is_queue_empty(disk->queue) && ((Job*)disk->queue->val)->burstTime > 0) { // if the disk queue contains a job AND the job is NOT finished
 				diskEnter((Job*)disk->queue->val, disk);
 			}
 		}
-
+		
+		// Decrease computation time remaining for the current job
 		if(disk->currentJob != NULL && disk->currentJob->burstTime > 0) { // wait for cpu if job is finished
 			--disk->currentJob->burstTime; // disk computation
 		}
@@ -339,6 +340,8 @@ int main(int argc, char const *argv[])
 		);
 	simulate();
 
+
+	// <?telemetry>
 	Telemetry* t[3] = {&cpu.telemetry,&disk1.telemetry,&disk2.telemetry};
 	size_t tSize = sizeof(t)/sizeof(t[0]);
 	
