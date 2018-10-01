@@ -105,14 +105,14 @@ typedef struct disk {
 } Disk;
 
 
-void initrandom(unsigned seed);
-int myrandom(int low, int high);
-double rand01(void);
+void initrandom(unsigned seed);     // provide random seed for myrandom function
+int myrandom(int low, int high);    // random number generator
+double rand01(void);                // random number generator that generates a double type random number between 0 and 1
 
-extern char* log_buffer; // All log events will be concatenated here
-void log_event(size_t time, const char* event);
-void log(const char* event);
-void initLog();
-void writeLogToFile(const char* path);
+extern char* log_buffer;            // All log events will be concatenated here
+void log_event(size_t time, const char* event); // log an event with timestamp
+void log(const char* event);        // log an event
+void initLog();                     // allocate space for the log string
+void writeLogToFile(const char* path);  // write the global log to given file
 
 void finalizeStats(Telemetry* telemetry, Stats* buffer);

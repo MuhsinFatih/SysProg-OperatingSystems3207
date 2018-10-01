@@ -3,7 +3,7 @@
 #include <stdbool.h>
 typedef struct node {
     void* val; // any pointer
-    int priority; // will not use this time, but it turned out to be easy to implement anyways
+    int priority;
     struct node* next;
 } pNode;
 
