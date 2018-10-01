@@ -1,14 +1,17 @@
-HEADERS = *.h
-OBJECTS = main.o
+CFLAGS = -Wall -g
+CC = gcc
 
-default: program
+output: main.o misc.o pqueue.o
+	$(CC) $(CFLAGS) main.o misc.o pqueue.o -o program.out
 
-%.o: %.c $(HEADERS)
-    gcc -c $< -o $@
+main.o: main.c
+	gcc -c main.c
 
-program: $(OBJECTS)
-    gcc $(OBJECTS) -o $@
+misc.o: misc.c
+	gcc -c misc.c
+
+pqueue.o: pqueue.c
+	gcc -c pqueue.c
 
 clean:
-    -rm -f $(OBJECTS)
-    -rm -f program
+	@rm *.o *.out

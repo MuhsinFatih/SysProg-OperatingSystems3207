@@ -211,7 +211,7 @@ void cpuEnter(Job* job) {
 
 // convenience function, returns true 80% of the time
 bool jobNeedsDisk(Job* job) {
-	return(myrandom(0,100) > 20);
+	return(myrandom(0,100) > conf.QUIT_PROB);
 }
 
 void arriveAtCPU(Job* job) {
@@ -276,8 +276,6 @@ void killJob(Job* job, pNode *queuePos) {
 
 int main(int argc, char const *argv[])
 {
-	
-
 	char *buffer = NULL;
 	conf = readConf("conf.txt");
 	
