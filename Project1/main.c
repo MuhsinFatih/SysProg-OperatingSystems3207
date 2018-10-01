@@ -160,8 +160,9 @@ bool cpuDetermineJob() {
 				returnFromDisk(job, disk);
 			} else if(cpu.currentJob != NULL && cpu.currentJob->burstTime <= 0) { // <?deadlock> deadlock, each job is waiting for other to exit the resource. Swap them
 				job->burstTime = myrandom(conf.CPU_MIN, conf.CPU_MAX);
-				arriveAtDisk(cpu.currentJob, disk);
+				Job* cpuJob = cpu.currentJob;
 				removeJobFromCPU();
+				arriveAtDisk(cpuJob, disk);
 				returnFromDisk(job, disk);
 			}
 		}
