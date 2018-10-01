@@ -37,6 +37,7 @@ size_t diskCount;
 	void recordCommonStats();
 	void dumpStats(Telemetry **t, size_t tSize);
 	void logStats(const char* deviceName, Telemetry* stats);
+	bool cpuFetchNextJob();
 /* End forward declerations */
 
 void simulate() {
@@ -55,7 +56,14 @@ void simulate() {
 		else if(--cpu.currentJob->burstTime <= 0) {
 			// job has finished compute time
 			if(jobNeedsDisk(cpu.currentJob)) {
-				// leave the job on the CPU. The next cpuDetermineJob() will move this job to a disk.
+				Disk* bestDisk = pickBestDisk();
+				if(bestDisk != NULL) {
+					arriveAtDisk(cpu.currentJob, bestDisk);
+					removeJobFromCPU();
+				} else {
+					// leave the job on the CPU. The next cpuDetermineJob() will move this job to a disk to prevent deadlock
+					int foo = 5;
+				}
 			} else {
 				killJob(cpu.currentJob, cpu.queue);
 			}
@@ -130,38 +138,15 @@ void removeJobFromCPU() {
 	cpu.currentJob = NULL;
 }
 
- /**
-  * @brief If cpu is idle, switch to next available job
-  * @retval returns false if CPU is idle (no job available), true otherwise
-  */
+/**
+ * @brief If cpu is idle, switch to next available job
+ * @retval returns false if CPU is idle (no job available), true otherwise
+ */
 bool cpuDetermineJob() {
 	// check if there is a job with no processing time left. It means the job is waiting for a resource
 	// (otherwise it would have been already terminated)
 	// If there is any, the job should arrive at a disk when available
-	if(cpu.currentJob != NULL && cpu.currentJob->burstTime <= 0) {
-		Disk* bestDisk = pickBestDisk();
-		if(bestDisk != NULL) {
-			arriveAtDisk(cpu.currentJob, bestDisk);
-			removeJobFromCPU();
-		} else if(size_queue(cpu.queue) >= cpu.queueSize) {
-			// Check disks for finished jobs IF cpu queue is full. This check is done here in addition to the regular check to prevent deadlock
-			for(size_t i = 0; i < diskCount; ++i) {
-				Disk* disk = disks[i];
-				if(is_queue_empty(disk->queue)) {continue;}
-
-				Job* job = (Job*)disk->queue->val;
-				size_t cpuQueueCount = size_queue(cpu.queue);
-				
-				if(job->burstTime <= 0) {
-					job->burstTime = myrandom(conf.CPU_MIN, conf.CPU_MAX);
-					returnFromDisk(job, disk);
-					arriveAtDisk(cpu.currentJob, bestDisk);
-					removeJobFromCPU();
-					break; // only swap one job
-				}
-			}
-		}
-	}
+	
 	// check disks for finished jobs
 	for(size_t i = 0; i < diskCount; ++i) {
 		Disk* disk = disks[i];
@@ -170,11 +155,28 @@ bool cpuDetermineJob() {
 		Job* job = (Job*)disk->queue->val;
 		size_t cpuQueueCount = size_queue(cpu.queue);
 		
-		if(job->burstTime <= 0 && cpuQueueCount < cpu.queueSize) {
-			job->burstTime = myrandom(conf.CPU_MIN, conf.CPU_MAX);
-			returnFromDisk(job, disk);
+		if(job->burstTime <= 0) {
+			if(cpuQueueCount < cpu.queueSize) {
+				job->burstTime = myrandom(conf.CPU_MIN, conf.CPU_MAX);
+				returnFromDisk(job, disk);
+			} else if(cpu.currentJob != NULL && cpu.currentJob->burstTime <= 0) { // deadlock, each job is waiting for other to exit the resource. Swap them
+				job->burstTime = myrandom(conf.CPU_MIN, conf.CPU_MAX);
+				arriveAtDisk(cpu.currentJob, disk);
+				removeJobFromCPU();
+				returnFromDisk(job, disk);
+			}
 		}
 	}
+
+	if(!cpuFetchNextJob()) return false;
+	if(cpu.currentJob->burstTime <= 0) return false;
+	return true;
+}
+ /**
+  * @brief  
+  * @retval returns false if cpu is IDLE, true otherwise
+  */
+bool cpuFetchNextJob() {
 	if(cpu.currentJob == NULL) { // cpu is idle
 		if(!is_queue_empty(cpu.queue)) {
 			cpuEnter(cpu.queue->val);
