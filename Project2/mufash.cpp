@@ -6,6 +6,7 @@
 #include <sys/wait.h>
 #include <iostream>
 
+
 #include <vector>
 #include <map>
 #include <algorithm>
@@ -20,6 +21,8 @@
 #include "misc/colors.h" // namespace color
 #include "misc/diag.cpp"
 #include "misc/misc.hpp"
+
+
 
 using namespace std;
 
@@ -61,18 +64,35 @@ int main(int argc, char** argv) {
     // printf("%s\n", std::getenv("PATH")); // get PATH variable to search for executables
     fetchEnviron();
     
-    std::string cmd_line;
+    std::string cmd_line; // string to store next command line
     while(true) {
         prompt();
 
-        std::getline(std::cin, cmd_line);
-        vs str_argv = split(cmd_line, " ");
-        vector<char*> cmd_argv;
-        for(auto& s : str_argv) {
-            cmd_argv.push_back(&s.front());
-        }
-        print_c_arr(str_argv.size(), str_argv);
+        std::getline(std::cin, cmd_line);       // get command line
+        vs cmd_argv = split(cmd_line, " ");     // split command line to arguments
         
+        print_c_arr(cmd_argv.size(), cmd_argv);
+        
+        int pid = fork(); // create new process for the program
+        if(pid < 0) { // fork failed
+            fprintf(stderr, "fork failed!\n");
+        } else if(pid == 0) { // child: redirect standard output to a file
+            // close(STDOUT_FILENO); // close pipe to stdout
+            
+            int status = execvp(cmd_argv[0].c_str(), (char**)cmd_argv.data());
+            if(status == -1) { // There was an error
+                fprintf(stderr, "%s\n", strerror(errno));
+                exit(errno);
+            }
+            
+            return 0;
+        } else {
+            int status = 0;
+            wait(&status);
+            status = WEXITSTATUS(status);
+            // printf("child exited with = %d\n",status);
+        }
+
     }
     return 0;
 }
