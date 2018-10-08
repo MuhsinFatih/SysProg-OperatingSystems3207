@@ -86,8 +86,10 @@ int main(int argc, char** argv) {
         string cmd = cmd_argv[0];
         
         if(map_contains(built_in::commands, cmd)) {
-            built_in::commands[cmd](0,NULL);
+        //     // (*built_in::commands.at(cmd))(0,NULL);
+        //     // cout << built_in::run(cmd_argv.size(), (char**)cmd_argv.data()) << endl;
         }
+        built_in::asdfdfsaga.size();
 
         int pid = fork(); // create new process for the program
         if(pid < 0) { // fork failed

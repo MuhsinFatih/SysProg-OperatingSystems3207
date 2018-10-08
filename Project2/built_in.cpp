@@ -27,17 +27,26 @@
 
 using namespace std;
 
-std::map<string, void*> commands;
 
-void init() {
-    commands = {
-        {"cd", &cd}
-    };
+// typedef void (*funPtr)(int argc, char** argv);
+
+std::map<string, built_in::funPtr> built_in::commands;
+std::map<string, int> built_in::asdfdfsaga;
+void built_in::run(int argc, char** argv) {
+    char* cmd = argv[0];
+    
+}
+
+void built_in::cd(int argc, char** argv) {
+    if(chdir(argv[1]) != 0) {
+        fprintf(stderr, "cd: %s: %s\n", strerror(errno), argv[1]);
+    }
 }
 
 
-void cd(int argc, char** argv) {
-    if(chdir(argv[1]) != 0) {
-        fprintf(stderr, "cd: %s: %s\n", strerror(errno), path);
-    }
+void built_in::init() {
+    // commands = (std::map<string, funPtr>){
+    //     {"cd", cd}
+    // };
+    // commands["cd"] = &cd;
 }
