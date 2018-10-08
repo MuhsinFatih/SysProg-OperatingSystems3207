@@ -61,12 +61,18 @@ int main(int argc, char** argv) {
     // printf("%s\n", std::getenv("PATH")); // get PATH variable to search for executables
     fetchEnviron();
     
-    std::string cmd_argv;
+    std::string cmd_line;
     while(true) {
         prompt();
 
-        std::getline(std::cin, cmd_argv);
-        vs results = split(cmd_argv, " ");
+        std::getline(std::cin, cmd_line);
+        vs str_argv = split(cmd_line, " ");
+        vector<char*> cmd_argv;
+        for(auto& s : str_argv) {
+            cmd_argv.push_back(&s.front());
+        }
+        print_c_arr(str_argv.size(), str_argv);
+        
     }
     return 0;
 }
