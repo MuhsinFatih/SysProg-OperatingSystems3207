@@ -2,13 +2,16 @@ CFLAGS = -Wall -g -std=c++17 -w
 CC = g++
 
 output: mufash.o diag.o built_in.o
-	$(CC) $(CFLAGS) mufash.o diag.o built_in.o -o program.out
+	$(CC) $(CFLAGS) mufash.o diag.o built_in.o misc.o -o program.out
 
 mufash.o: mufash.cpp
 	$(CC) $(CFLAGS) -c mufash.cpp
 
 diag.o: misc/diag.cpp
 	$(CC) $(CFLAGS) -c misc/diag.cpp
+	
+misc.o: misc/misc.cpp
+	$(CC) $(CFLAGS) -c misc/misc.cpp
 
 built_in.o: built_in.cpp
 	$(CC) $(CFLAGS) -c built_in.cpp

@@ -31,21 +31,21 @@ using namespace std;
 
 std::map<string, built_in::funPtr> built_in::commands;
 
-void built_in::run(int argc, char** argv) {
-    char* cmd = argv[0];
-    
+void built_in::run(int argc, vs argv) {
+    string cmd = argv[0];
+    (*built_in::commands.at(cmd))(argc, argv);
 }
 
-void built_in::cd(int argc, char** argv) {
-    if(chdir(argv[1]) != 0) {
-        fprintf(stderr, "cd: %s: %s\n", strerror(errno), argv[1]);
+void built_in::cd(int argc, vs argv) {
+    if(chdir(argv[1].c_str()) != 0) {
+        fprintf(stderr, "cd: %s: %s\n", strerror(errno), argv[1].c_str());
     }
 }
 
 
 void built_in::init() {
-    // commands = (std::map<string, funPtr>){
-    //     {"cd", cd}
-    // };
-    // commands["cd"] = &cd;
+    commands = (std::map<string, funPtr>){
+        {"cd", cd}
+    };
+    commands["cd"] = &cd;
 }

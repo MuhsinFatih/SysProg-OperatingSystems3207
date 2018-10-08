@@ -78,16 +78,17 @@ int main(int argc, char** argv) {
     while(true) {
         prompt();
 
-        std::getline(std::cin, cmd_line);       // get command line
-        vs cmd_argv = split(cmd_line, " ");     // split command line to arguments
+        std::getline(std::cin, cmd_line);           // get command line
+        vs str_argv = str_split(cmd_line, " ");     // split command line to arguments
+        vector<char*> cmd_argv = vs_to_ch(str_argv);
         
-        print_c_arr(cmd_argv.size(), cmd_argv);
-        
-        string cmd = cmd_argv[0];
+        string cmd = str_argv[0];
         
         if(map_contains(built_in::commands, cmd)) {
-        //     // (*built_in::commands.at(cmd))(0,NULL);
-        //     // cout << built_in::run(cmd_argv.size(), (char**)cmd_argv.data()) << endl;
+            printf("...\n");
+            // command is a built-in function
+            built_in::run(str_argv.size(), str_argv);
+            continue;
         }
 
 
@@ -96,8 +97,8 @@ int main(int argc, char** argv) {
             fprintf(stderr, "fork failed!\n");
         } else if(pid == 0) { // child: redirect standard output to a file
             // close(STDOUT_FILENO); // close pipe to stdout
-            
-            int status = execvp(cmd_argv[0].c_str(), (char**)cmd_argv.data());
+            // char** a = &cmd_argv;
+            int status = execvp(str_argv[0].c_str(), (char**)(cmd_argv.data()));
             if(status == -1) { // There was an error
                 fprintf(stderr, "%s\n", strerror(errno));
                 exit(errno);
@@ -108,7 +109,7 @@ int main(int argc, char** argv) {
             int status = 0;
             wait(&status);
             status = WEXITSTATUS(status);
-            // printf("child exited with = %d\n",status);
+            printf("child exited with code %d\n",status);
         }
 
     }

@@ -7,4 +7,5 @@
 #include <stdlib.h>
 using namespace std;
 
-vector<string> split(const string& str, const string& delim);
+vector<string> str_split(const string& str, const string& delim);
+vector<char*> vs_to_ch(vector<string> tokens);

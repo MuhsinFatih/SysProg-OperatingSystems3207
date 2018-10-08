@@ -22,9 +22,8 @@ using namespace std;
 
 namespace built_in {
     void init();
-    void cd(int argc, char** argv);
-    typedef void(*funPtr)(int argc, char** argv);
+    void cd(int argc, vs argv);
+    typedef void(*funPtr)(int argc, std::vector<string> argv);
     extern std::map<string, funPtr> commands;
-    extern std::map<string, int> asdfdfsaga;
-    void run(int argc, char** argv);
+    void run(int argc, vs argv);
 }
