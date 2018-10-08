@@ -28,10 +28,9 @@
 using namespace std;
 
 
-// typedef void (*funPtr)(int argc, char** argv);
 
 std::map<string, built_in::funPtr> built_in::commands;
-std::map<string, int> built_in::asdfdfsaga;
+
 void built_in::run(int argc, char** argv) {
     char* cmd = argv[0];
     
