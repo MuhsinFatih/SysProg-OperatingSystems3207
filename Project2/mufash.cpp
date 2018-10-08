@@ -13,6 +13,8 @@
 
 #define REP(size) for(size_t i=0, length=size; i<length; ++i)
 #define REPW(size)  size_t w,length; length=size; while(w<length)
+#define print_err() fprintf(stderr, "%s\n", strerror(errno));
+#define map_contains(map, key) map.find(key) != map.end()
 #define vi  vector<int>
 #define vs  vector<string>
 #define st  size_t
@@ -21,7 +23,7 @@
 #include "misc/colors.h" // namespace color
 #include "misc/diag.cpp"
 #include "misc/misc.hpp"
-
+#include "built_in.hpp"
 
 
 using namespace std;
@@ -64,6 +66,14 @@ int main(int argc, char** argv) {
     // printf("%s\n", std::getenv("PATH")); // get PATH variable to search for executables
     fetchEnviron();
     
+    
+    built_in::init();
+
+    if(0) {
+        
+    }
+
+
     std::string cmd_line; // string to store next command line
     while(true) {
         prompt();
@@ -73,6 +83,12 @@ int main(int argc, char** argv) {
         
         print_c_arr(cmd_argv.size(), cmd_argv);
         
+        string cmd = cmd_argv[0];
+        
+        if(map_contains(built_in::commands, cmd)) {
+            built_in::commands[cmd](0,NULL);
+        }
+
         int pid = fork(); // create new process for the program
         if(pid < 0) { // fork failed
             fprintf(stderr, "fork failed!\n");
