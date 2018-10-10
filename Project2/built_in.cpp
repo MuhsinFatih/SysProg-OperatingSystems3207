@@ -43,9 +43,12 @@ void built_in::cd(int argc, vs argv) {
 }
 
 
-void built_in::init() {
+void built_in::init(string* path) {
     commands = (std::map<string, funPtr>){
         {"cd", cd}
     };
     commands["cd"] = &cd;
+    // PATH = path;
 }
+
+

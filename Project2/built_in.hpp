@@ -21,7 +21,7 @@ using namespace std;
 
 
 namespace built_in {
-    void init();
+    void init(string* PATH);
     void cd(int argc, vs argv);
     typedef void(*funPtr)(int argc, std::vector<string> argv);
     extern std::map<string, funPtr> commands;
