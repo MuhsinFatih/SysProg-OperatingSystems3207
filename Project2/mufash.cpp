@@ -222,7 +222,7 @@ int main(int argc, char** argv) {
             if(isvalid(cur)) {
                 ignorespace = false;
                 curCmd->args[currentArg] += cur;
-            } else if(i!=c-1){
+            } else {
                 if(cur == ' ') {
                     if(ignorespace) { continue;}
                     ignorespace = true;
@@ -280,7 +280,11 @@ int main(int argc, char** argv) {
                     }
                 }
             }
-        } 
+        }
+        struct exec *lastCMD = &cmds[cmds.size()-1];
+        if(lastCMD->args.back() == "") {
+            lastCMD->args.pop_back(); // parser creates extra arg if there is whitespace at the end, delete it
+        }
         for(size_t i=0; i<cmds.size(); ++i) {
             cmds[i].executable_path = cmds[i].args[0];
         }
