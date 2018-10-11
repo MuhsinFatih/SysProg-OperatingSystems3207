@@ -41,7 +41,7 @@ char* HOSTNAME;
 string PATH;
 string CWD;
 extern char** environ; // the last item in the array is a NULL c-string
-std::vector<string> executables;
+std::map<string, string> executables;
 
 
 string _user;
@@ -62,7 +62,7 @@ void fetchExecutables() {
         for (auto &p : fs::directory_iterator(d)) {
             try {
                 if(!fs::is_directory(p))
-                    executables.push_back(p.path().string());
+                    executables.insert(std::pair<string,string>(p.path().filename().string(), p.path().string()));
             } catch(fs::filesystem_error &e) { 
                 if(e.code() != boost::system::errc::permission_denied)
                     printf("%s: %s\n", p.path().c_str(), e.code().message().c_str());
@@ -306,7 +306,7 @@ int main(int argc, char** argv) {
                 char** args = vs_to_ch(cmd.args);
                 args = (char**) realloc(args, (cmd.args.size()+1) * sizeof(char*));
                 args[cmd.args.size()] = NULL; // add null to the end
-                execvp(cmd.args[0].c_str(), args); // TODO: change execvp to something that only uses real path
+                execv(cmd.args[0].c_str(), args);
                 fprintf(stderr, "child %i failed!\n", i);
                 exit(1);
             }
