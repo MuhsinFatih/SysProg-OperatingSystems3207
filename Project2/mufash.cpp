@@ -324,14 +324,12 @@ int main(int argc, char** argv) {
                     }
                 } { // redirection
                     if((cmd.redir == redirection::redir_forward || cmd.redir == redirection::append_forward) && i != cmds.size()-1) {
-                        char* rp = (char*) malloc(PATH_MAX * sizeof(char));
-                        assert((rp = realpath(cmds[i+1].executable_path.c_str(), rp)) != nullptr);
-                        open(rp, O_CREAT|O_WRONLY| (cmd.redir == redirection::redir_forward ? O_TRUNC : 0), S_IRUSR | S_IWUSR);
+                        string ap = fs::absolute(cmds[i+1].executable_path).string();
+                        open(ap.c_str(), O_CREAT|O_WRONLY| (cmd.redir == redirection::redir_forward ? O_TRUNC : 0), S_IRUSR | S_IWUSR);
                         close(STDOUT_FILENO);
-                        skip_cmd = true; // skip the next chunk, it is not a command
                     }
                 }
-
+                
                 char** args = vs_to_ch(cmd.args);
                 args = (char**) realloc(args, (cmd.args.size()+1) * sizeof(char*));
                 args[cmd.args.size()] = NULL; // add null to the end
@@ -339,10 +337,12 @@ int main(int argc, char** argv) {
                 fprintf(stderr, "child %i failed!\n", i);
                 exit(1);
             }
+
             cmd.pid = pid;
             if(cmd.redir == redirection::pipe)
                 prev_pipe.push_back(pipefd);
-
+            if(cmd.redir == redirection::redir_forward || cmd.redir == redirection::append_forward)
+                skip_cmd = true;
 
             
             // ilk argümanı al
