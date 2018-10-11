@@ -330,8 +330,13 @@ int main(int argc, char** argv) {
                 } { // redirection
                     if((cmd.redir == redirection::redir_output || cmd.redir == redirection::append_output) && i != cmds.size()-1) {
                         string ap = fs::absolute(cmds[i+1].executable_path).string();
-                        close(STDOUT_FILENO);
-                        open(ap.c_str(), O_CREAT|O_WRONLY| (cmd.redir == redirection::redir_output ? O_TRUNC : O_APPEND), S_IRUSR | S_IWUSR);
+                        int fd = open(ap.c_str(), O_CREAT|O_WRONLY| (cmd.redir == redirection::redir_output ? O_TRUNC : O_APPEND), S_IRUSR | S_IWUSR);
+                        dup2(fd, STDOUT_FILENO);
+                    }
+                    else if(cmd.redir == redirection::redir_input && i != cmds.size()-1) {
+                        string ap = fs::absolute(cmds[i+1].executable_path).string();
+                        int fd = open(ap.c_str(), O_RDONLY);
+                        dup2(fd, STDIN_FILENO);
                     }
                 }
                 
