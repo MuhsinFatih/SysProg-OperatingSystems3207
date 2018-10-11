@@ -151,6 +151,7 @@ void built_in_func(int argc, vs argv) {
 
 typedef struct exec
 {
+    pid_t pid;
     string executable_path;
     vector<string> args;
     bool is_piped;
@@ -196,6 +197,7 @@ int main(int argc, char** argv) {
 
         vector<exec> cmds;
         exec first = {
+            .pid = NULL,
             .executable_path = "",
             .args = (vs){""},
             .is_piped = false
@@ -237,6 +239,7 @@ int main(int argc, char** argv) {
                     ++currentCMD;
                     currentArg = 0;
                     cmds.push_back((exec) {
+                        .pid = NULL,
                         .executable_path = "",
                         .args = (vs){""},
                         .is_piped =  false
@@ -270,9 +273,8 @@ int main(int argc, char** argv) {
         } 
 
 
-        // bir önceki pipe referansı
-
-        // kaçıncı pipe da duruldu 
+        vector<int*> prev_pipe = {};
+        bool pipe_disconnected = false;
 
         for(size_t i=0; i<cmds.size(); ++i) {
             cout << "-----------------" << endl;
@@ -280,7 +282,40 @@ int main(int argc, char** argv) {
             for(size_t k=0; k<cmds[i].args.size();++k) {
                 cout << cmds[i].args[k] << endl;
             }
+            exec cmd = cmds[i];
 
+            int* pipefd;
+            if(cmd.is_piped) {
+                pipefd = (int*) malloc(2 * sizeof(int));
+                pipe(pipefd);
+            }
+            if(i == 0 || !(cmds[i-1].is_piped))
+                pipe_disconnected = true;
+            else if(pipe_disconnected) pipe_disconnected = false;
+
+            pid_t pid = fork(); if(pid < 0) {fprintf(stderr, "fork failed for cmd%i!\n", i); exit(1);}
+            if(pid == 0) { // child
+                if(!pipe_disconnected && prev_pipe.size() != 0) {
+                    dup2(prev_pipe.back()[STDIN_FILENO], STDIN_FILENO);
+                    {for(size_t i=prev_pipe.size();i-->0;)
+                        close(prev_pipe[i][STDOUT_FILENO]);} // wait for previous write pipes to finish
+                }
+                if(cmd.is_piped && i != cmds.size()-1) {
+                    dup2(pipefd[STDOUT_FILENO], STDOUT_FILENO);
+                }
+                char** args = vs_to_ch(cmd.args);
+                args = (char**) realloc(args, (cmd.args.size()+1) * sizeof(char*));
+                args[cmd.args.size()] = NULL; // add null to the end
+                execvp(cmd.args[0].c_str(), args); // TODO: change execvp to something that only uses real path
+                fprintf(stderr, "child %i failed!\n", i);
+                exit(1);
+            }
+            cmd.pid = pid;
+            if(cmd.is_piped)
+                prev_pipe.push_back(pipefd);
+
+
+            
             // ilk argümanı al
             // eğer path a benziyorsa tam yolu bul, // man realpath // RTFM :D
             // eğer benzemiyorsa path enviroment ile bbinary i bulmaya çalış
@@ -293,6 +328,17 @@ int main(int argc, char** argv) {
             // 
 
             printf("is_piped:%i\n", cmds[i].is_piped);
+        }
+
+        // wait for all pipes to close
+        for(size_t i=0; i<prev_pipe.size(); ++i) {
+            close(prev_pipe[i][STDIN_FILENO]);
+            close(prev_pipe[i][STDOUT_FILENO]);
+        }
+        // wait for children to finish
+        for(size_t i=0; i<cmds.size(); ++i) {
+            int wstatus;
+            waitpid(cmds[i].pid, &wstatus, NULL);
         }
         continue;
 
