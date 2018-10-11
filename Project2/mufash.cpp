@@ -148,14 +148,15 @@ void built_in_func(int argc, vs argv) {
     }
 }
 
-
+enum class redirection
+{none, pipe, redir_forward, redir_backward, append_forward, append_backward};
 
 typedef struct exec
 {
     pid_t pid;
     string executable_path;
     vector<string> args;
-    bool is_piped;
+    redirection redir;
 };
 
 int main(int argc, char** argv) {
@@ -201,7 +202,7 @@ int main(int argc, char** argv) {
             .pid = NULL,
             .executable_path = "",
             .args = (vs){""},
-            .is_piped = false
+            .redir = redirection::none
         };
         int currentCMD = 0;
         int currentArg = 0;
@@ -220,30 +221,33 @@ int main(int argc, char** argv) {
             
             if(isvalid(cur)) {
                 ignorespace = false;
-                // printf("Valid Char: %c\n", cur);
                 curCmd->args[currentArg] += cur;
             } else {
                 if(cur == ' ') {
                     if(ignorespace) { continue;}
                     ignorespace = true;
                     curCmd->args.push_back("");
-                    // printf("New Arg %s\n", curCmd->args[currentArg].c_str());
+
                     ++currentArg;
-                } else if(cur == '|' || cur == ';') {
+                } else if(cur == ';' || cur == '|' || cur == '>') {
                     ignorespace = true;
                     
                     if(curCmd->args[currentArg] == "") {
                         curCmd->args.pop_back();
                     }
-                    curCmd->is_piped = (cur == '|');
-
+                    if(cur == ';') curCmd->redir = redirection::none;
+                    else if(cur == '|') curCmd->redir = redirection::pipe;
+                    else if(cur == '>') {
+                        if(i != c-1 && cmd_line[i+1] == '>') curCmd->redir = redirection::append_forward;
+                        else curCmd->redir = redirection::redir_forward;
+                    }
                     ++currentCMD;
                     currentArg = 0;
                     cmds.push_back((exec) {
                         .pid = NULL,
                         .executable_path = "",
                         .args = (vs){""},
-                        .is_piped =  false
+                        .redir = redirection::none
                     });
                 } else if(cur == '\\') {
                     // take next char no matter what
@@ -296,11 +300,11 @@ int main(int argc, char** argv) {
             
             printf(CYAN "realpath: %s\n" RESET, cmd.executable_path.c_str());
             int* pipefd;
-            if(cmd.is_piped) {
+            if(cmd.redir == redirection::pipe) {
                 pipefd = (int*) malloc(2 * sizeof(int));
                 pipe(pipefd);
             }
-            if(i == 0 || !(cmds[i-1].is_piped))
+            if(i == 0 || !(cmds[i-1].redir == redirection::pipe))
                 pipe_disconnected = true;
             else if(pipe_disconnected) pipe_disconnected = false;
 
@@ -311,7 +315,7 @@ int main(int argc, char** argv) {
                     {for(size_t i=prev_pipe.size();i-->0;)
                         close(prev_pipe[i][STDOUT_FILENO]);} // wait for previous write pipes to finish
                 }
-                if(cmd.is_piped && i != cmds.size()-1) {
+                if(cmd.redir == redirection::pipe && i != cmds.size()-1) {
                     dup2(pipefd[STDOUT_FILENO], STDOUT_FILENO);
                 }
                 char** args = vs_to_ch(cmd.args);
@@ -322,7 +326,7 @@ int main(int argc, char** argv) {
                 exit(1);
             }
             cmd.pid = pid;
-            if(cmd.is_piped)
+            if(cmd.redir == redirection::pipe)
                 prev_pipe.push_back(pipefd);
 
 
@@ -338,7 +342,7 @@ int main(int argc, char** argv) {
             // cmds.size();
             // 
 
-            printf("is_piped:%i\n", cmds[i].is_piped);
+            printf("is_piped:%i\n", cmds[i].redir == redirection::pipe);
         }
 
         // wait for all pipes to close
