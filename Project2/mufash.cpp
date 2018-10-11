@@ -222,7 +222,7 @@ int main(int argc, char** argv) {
             if(isvalid(cur)) {
                 ignorespace = false;
                 curCmd->args[currentArg] += cur;
-            } else {
+            } else if(i!=c-1){
                 if(cur == ' ') {
                     if(ignorespace) { continue;}
                     ignorespace = true;
