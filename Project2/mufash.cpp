@@ -282,6 +282,7 @@ int main(int argc, char** argv) {
 
         vector<int*> prev_pipe = {};
         bool pipe_disconnected = false;
+        bool skip_cmd = false;
 
         for(size_t i=0; i<cmds.size(); ++i) {
             cout << "-----------------" << endl;
@@ -289,14 +290,15 @@ int main(int argc, char** argv) {
             for(size_t k=0; k<cmds[i].args.size();++k) {
                 cout << cmds[i].args[k] << endl;
             }
+            if(skip_cmd) {skip_cmd = false; continue;}
             exec cmd = cmds[i];
-
             char* rp = (char*) malloc(PATH_MAX * sizeof(char));
             if((rp = realpath(cmd.executable_path.c_str(), rp)) != NULL)
                 cmd.executable_path = rp;
             else {
                 cmd.executable_path = executables[cmd.executable_path];
             }
+            free(rp);
             
             printf(CYAN "realpath: %s\n" RESET, cmd.executable_path.c_str());
             int* pipefd;
@@ -308,16 +310,28 @@ int main(int argc, char** argv) {
                 pipe_disconnected = true;
             else if(pipe_disconnected) pipe_disconnected = false;
 
+
             pid_t pid = fork(); if(pid < 0) {fprintf(stderr, "fork failed for cmd%i!\n", i); exit(1);}
             if(pid == 0) { // child
-                if(!pipe_disconnected && prev_pipe.size() != 0) {
-                    dup2(prev_pipe.back()[STDIN_FILENO], STDIN_FILENO);
-                    {for(size_t i=prev_pipe.size();i-->0;)
-                        close(prev_pipe[i][STDOUT_FILENO]);} // wait for previous write pipes to finish
+                { // pipe
+                    if(!pipe_disconnected && prev_pipe.size() != 0) {
+                        dup2(prev_pipe.back()[STDIN_FILENO], STDIN_FILENO);
+                        {for(size_t i=prev_pipe.size();i-->0;)
+                            close(prev_pipe[i][STDOUT_FILENO]);} // wait for previous write pipes to finish
+                    }
+                    if(cmd.redir == redirection::pipe && i != cmds.size()-1) {
+                        dup2(pipefd[STDOUT_FILENO], STDOUT_FILENO);
+                    }
+                } { // redirection
+                    if((cmd.redir == redirection::redir_forward || cmd.redir == redirection::append_forward) && i != cmds.size()-1) {
+                        char* rp = (char*) malloc(PATH_MAX * sizeof(char));
+                        assert((rp = realpath(cmds[i+1].executable_path.c_str(), rp)) != nullptr);
+                        open(rp, O_CREAT|O_WRONLY| (cmd.redir == redirection::redir_forward ? O_TRUNC : 0), S_IRUSR | S_IWUSR);
+                        close(STDOUT_FILENO);
+                        skip_cmd = true; // skip the next chunk, it is not a command
+                    }
                 }
-                if(cmd.redir == redirection::pipe && i != cmds.size()-1) {
-                    dup2(pipefd[STDOUT_FILENO], STDOUT_FILENO);
-                }
+
                 char** args = vs_to_ch(cmd.args);
                 args = (char**) realloc(args, (cmd.args.size()+1) * sizeof(char*));
                 args[cmd.args.size()] = NULL; // add null to the end
