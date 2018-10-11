@@ -149,7 +149,7 @@ void built_in_func(int argc, vs argv) {
 }
 
 enum class redirection
-{none, pipe, redir_forward, redir_backward, append_forward, append_backward};
+{none, pipe, redir_output, redir_input, append_output};
 
 typedef struct exec
 {
@@ -238,8 +238,13 @@ int main(int argc, char** argv) {
                     if(cur == ';') curCmd->redir = redirection::none;
                     else if(cur == '|') curCmd->redir = redirection::pipe;
                     else if(cur == '>') {
-                        if(i != c-1 && cmd_line[i+1] == '>') curCmd->redir = redirection::append_forward;
-                        else curCmd->redir = redirection::redir_forward;
+                        if(i != c-1 && cmd_line[i+1] == '>') {
+                            curCmd->redir = redirection::append_output;
+                            ++i;
+                        }
+                        else curCmd->redir = redirection::redir_output;
+                    } else if(cur == '<' && currentCMD != 0) {
+                        cmds[currentCMD-1].redir = redirection::redir_input;
                     }
                     ++currentCMD;
                     currentArg = 0;
@@ -323,10 +328,10 @@ int main(int argc, char** argv) {
                         dup2(pipefd[STDOUT_FILENO], STDOUT_FILENO);
                     }
                 } { // redirection
-                    if((cmd.redir == redirection::redir_forward || cmd.redir == redirection::append_forward) && i != cmds.size()-1) {
+                    if((cmd.redir == redirection::redir_output || cmd.redir == redirection::append_output) && i != cmds.size()-1) {
                         string ap = fs::absolute(cmds[i+1].executable_path).string();
                         close(STDOUT_FILENO);
-                        open(ap.c_str(), O_CREAT|O_WRONLY| (cmd.redir == redirection::redir_forward ? O_TRUNC : 0), S_IRUSR | S_IWUSR);
+                        open(ap.c_str(), O_CREAT|O_WRONLY| (cmd.redir == redirection::redir_output ? O_TRUNC : O_APPEND), S_IRUSR | S_IWUSR);
                     }
                 }
                 
@@ -341,7 +346,7 @@ int main(int argc, char** argv) {
             cmd.pid = pid;
             if(cmd.redir == redirection::pipe)
                 prev_pipe.push_back(pipefd);
-            if(cmd.redir == redirection::redir_forward || cmd.redir == redirection::append_forward)
+            if(cmd.redir == redirection::redir_output || cmd.redir == redirection::append_output)
                 skip_cmd = true;
 
             
