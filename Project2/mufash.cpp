@@ -9,6 +9,7 @@
 #include <string>
 #include <sys/ioctl.h>
 #include <boost/filesystem.hpp>
+#include <limits>
 
 #include <vector>
 #include <map>
@@ -271,7 +272,9 @@ int main(int argc, char** argv) {
                 }
             }
         } 
-
+        for(size_t i=0; i<cmds.size(); ++i) {
+            cmds[i].executable_path = cmds[i].args[0];
+        }
 
         vector<int*> prev_pipe = {};
         bool pipe_disconnected = false;
@@ -284,6 +287,14 @@ int main(int argc, char** argv) {
             }
             exec cmd = cmds[i];
 
+            char* rp = (char*) malloc(PATH_MAX * sizeof(char));
+            if((rp = realpath(cmd.executable_path.c_str(), rp)) != NULL)
+                cmd.executable_path = rp;
+            else {
+                cmd.executable_path = executables[cmd.executable_path];
+            }
+            
+            printf(CYAN "realpath: %s\n" RESET, cmd.executable_path.c_str());
             int* pipefd;
             if(cmd.is_piped) {
                 pipefd = (int*) malloc(2 * sizeof(int));
@@ -306,7 +317,7 @@ int main(int argc, char** argv) {
                 char** args = vs_to_ch(cmd.args);
                 args = (char**) realloc(args, (cmd.args.size()+1) * sizeof(char*));
                 args[cmd.args.size()] = NULL; // add null to the end
-                execv(cmd.args[0].c_str(), args);
+                execv(cmd.executable_path.c_str(), args);
                 fprintf(stderr, "child %i failed!\n", i);
                 exit(1);
             }
