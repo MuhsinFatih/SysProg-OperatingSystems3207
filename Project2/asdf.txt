@@ -1,0 +1,16 @@
+asdf.txt
+built_in.cpp
+built_in.hpp
+built_in.o
+debug.out.dSYM
+diag.o
+makefile
+misc
+mufash
+mufash.cpp
+mufash.dSYM
+mufash.o
+pseudocode.txt
+shell
+shell_old.cpp
+test.txt

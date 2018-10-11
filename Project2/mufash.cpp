@@ -325,8 +325,8 @@ int main(int argc, char** argv) {
                 } { // redirection
                     if((cmd.redir == redirection::redir_forward || cmd.redir == redirection::append_forward) && i != cmds.size()-1) {
                         string ap = fs::absolute(cmds[i+1].executable_path).string();
-                        open(ap.c_str(), O_CREAT|O_WRONLY| (cmd.redir == redirection::redir_forward ? O_TRUNC : 0), S_IRUSR | S_IWUSR);
                         close(STDOUT_FILENO);
+                        open(ap.c_str(), O_CREAT|O_WRONLY| (cmd.redir == redirection::redir_forward ? O_TRUNC : 0), S_IRUSR | S_IWUSR);
                     }
                 }
                 
