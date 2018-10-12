@@ -4,6 +4,8 @@
 #include <iostream>
 #include <stdlib.h>
 #include <unistd.h>
+#include <cstring>
+#include <linux/limits.h>
 using namespace std;
 
 #include "misc.hpp"
