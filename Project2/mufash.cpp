@@ -421,14 +421,14 @@ int main(int argc, char** argv) {
 
         for(size_t i=0; i<cmds.size(); ++i) {
             // cout << "-----------------" << endl;
-            printf("exec_path:%s\nargs:\n", cmds[i].executable_path.c_str()); // TODO: delete
-            for(size_t k=0; k<cmds[i].args.size();++k) {
-                cout << cmds[i].args[k] << endl; // TODO: delete
-            }
+            // printf("exec_path:%s\nargs:\n", cmds[i].executable_path.c_str()); // TODO: delete
+            // for(size_t k=0; k<cmds[i].args.size();++k) {
+                // cout << cmds[i].args[k] << endl; // TODO: delete
+            // }
             if(skip_cmd) {skip_cmd = false; continue;}
             exec cmd = cmds[i];
             if(map_contains(built_in_commands, cmd.executable_path)) {
-                printf(GREEN "command (%s) is built-in!\n" RESET, cmd.executable_path.c_str()); // TODO: delete
+                // printf(GREEN "command (%s) is built-in!\n" RESET, cmd.executable_path.c_str()); // TODO: delete
                 cmd.built_in = true;
             } else {
                 char* rp = (char*) malloc(PATH_MAX * sizeof(char));
