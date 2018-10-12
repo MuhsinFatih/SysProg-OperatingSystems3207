@@ -73,7 +73,7 @@ void fetchExecutables() {
 }
 
 void fetchEnviron() {
-    bool debug = true;
+    bool debug = false;
     if(debug) {
         CWD = "/Users/muhsinfatih/Documents/CourseMaterial/CIS 3207 - Systems Programming and Operating Systems/Assignments/Project2";
         USER = "muhsinfatih";
@@ -113,18 +113,18 @@ enum class command {
     quit = 7,
 };
 std::map<string, command> built_in_commands;
-void built_in_func(int argc, vs argv) {
-    string cmd_str = argv[0];
-    command cmd = built_in_commands[cmd_str];
+void built_in_func(string executable_path, vs argv) {
+    command cmd = built_in_commands[executable_path];
     
     switch (cmd) {
         case command::cd: {
             string path = argv[1];
             
-            if(chdir(path.c_str()) == 0) {
+            if(chdir(path.c_str()) != 0) {
                 fprintf(stderr, "cd: %s: %s\n", strerror(errno), argv[1].c_str());
             } else {
                 CWD = getcwd_string();
+                setenv("CWD", CWD.c_str(), 1);
             }
             break;
         }
@@ -134,14 +134,36 @@ void built_in_func(int argc, vs argv) {
             // string ss = string(w.ws_row, '\n');
             // cout << ss << endl;
             cout << "\033[2J\033[1;1H";
+            break;
         }
         case command::ls: {
-            
+            if(argv.size()-1 == 0) // no directory is specified: assume "."
+                argv.push_back(".");
+            if(argv.size()-1 /* minus the executable */  > 1) {
+                for(size_t i=1; i<argv.size(); ++i) {
+                    auto &d = argv[i];
+                    printf("%s:\n", d.c_str());
+                    for(auto &p : fs::directory_iterator(d)) {
+                        printf("%s\n", p.path().filename().string().c_str());
+                    }
+                    cout << std::endl;
+                }
+            } else {
+                for(size_t i=1; i<argv.size(); ++i) {
+                    auto &d = argv[i];
+                    for(auto &p : fs::directory_iterator(d)) {
+                        printf("%s\n", p.path().filename().string().c_str());
+                    }
+                    cout << std::endl;
+                }
+            }
+            break;
         }
         case command::environ: {
             for(char **cur = environ; *cur; ++cur) {
                 puts(*cur);
             }
+            break;
         }
         default:
             break;
@@ -155,6 +177,7 @@ typedef struct exec
 {
     pid_t pid;
     string executable_path;
+    bool built_in;
     vector<string> args;
     redirection redir;
 };
@@ -201,6 +224,7 @@ int main(int argc, char** argv) {
         exec first = {
             .pid = NULL,
             .executable_path = "",
+            .built_in = false,
             .args = (vs){""},
             .redir = redirection::none
         };
@@ -251,6 +275,7 @@ int main(int argc, char** argv) {
                     cmds.push_back((exec) {
                         .pid = NULL,
                         .executable_path = "",
+                        .built_in = false,
                         .args = (vs){""},
                         .redir = redirection::none
                     });
@@ -301,15 +326,19 @@ int main(int argc, char** argv) {
             }
             if(skip_cmd) {skip_cmd = false; continue;}
             exec cmd = cmds[i];
-            char* rp = (char*) malloc(PATH_MAX * sizeof(char));
-            if((rp = realpath(cmd.executable_path.c_str(), rp)) != NULL)
-                cmd.executable_path = rp;
-            else {
-                cmd.executable_path = executables[cmd.executable_path];
+            if(map_contains(built_in_commands, cmd.executable_path)) {
+                printf(GREEN "command (%s) is built-in!\n" RESET, cmd.executable_path.c_str());
+                cmd.built_in = true;
+            } else {
+                char* rp = (char*) malloc(PATH_MAX * sizeof(char));
+                if((rp = realpath(cmd.executable_path.c_str(), rp)) != NULL)
+                    cmd.executable_path = rp;
+                else {
+                    cmd.executable_path = executables[cmd.executable_path];
+                }
+                free(rp);
+                printf(CYAN "realpath: %s\n" RESET, cmd.executable_path.c_str());
             }
-            free(rp);
-            
-            printf(CYAN "realpath: %s\n" RESET, cmd.executable_path.c_str());
             int* pipefd;
             if(cmd.redir == redirection::pipe) {
                 pipefd = (int*) malloc(2 * sizeof(int));
@@ -319,7 +348,11 @@ int main(int argc, char** argv) {
                 pipe_disconnected = true;
             else if(pipe_disconnected) pipe_disconnected = false;
 
-
+            if(cmd.built_in && cmd.executable_path == "cd" ){
+                // special case for cd command as it should change the parent process's environment
+                built_in_func(cmd.executable_path, cmd.args);
+                continue;
+            }
             pid_t pid = fork(); if(pid < 0) {fprintf(stderr, "fork failed for cmd%i!\n", i); exit(1);}
             if(pid == 0) { // child
                 { // pipe
@@ -344,12 +377,17 @@ int main(int argc, char** argv) {
                     }
                 }
                 
-                char** args = vs_to_ch(cmd.args);
-                args = (char**) realloc(args, (cmd.args.size()+1) * sizeof(char*));
-                args[cmd.args.size()] = NULL; // add null to the end
-                execv(cmd.executable_path.c_str(), args);
-                fprintf(stderr, "child %i failed!\n", i);
-                exit(1);
+                if(cmd.built_in) {
+                    built_in_func(cmd.executable_path, cmd.args);
+                    exit(0);
+                } else {
+                    char** args = vs_to_ch(cmd.args);
+                    args = (char**) realloc(args, (cmd.args.size()+1) * sizeof(char*));
+                    args[cmd.args.size()] = NULL; // add null to the end
+                    execv(cmd.executable_path.c_str(), args);
+                    fprintf(stderr, "child %i failed!\n", i);
+                    exit(1);
+                }
             }
 
             cmd.pid = pid;
@@ -383,35 +421,7 @@ int main(int argc, char** argv) {
             int wstatus;
             waitpid(cmds[i].pid, &wstatus, NULL);
         }
-        continue;
 
-        if(map_contains(built_in_commands, cmd)) {
-            // command is a built-in function
-            // built_in::run(str_argv.size(), str_argv);
-            built_in_func(str_argv.size(), str_argv);
-            continue;
-        }
-
-
-        int pid = fork(); // create new process for the program
-        if(pid < 0) { // fork failed
-            fprintf(stderr, "fork failed!\n");
-        } else if(pid == 0) { // child: redirect standard output to a file
-            // close(STDOUT_FILENO); // close pipe to stdout
-            // char** a = &cmd_argv;
-            int status = execvp(str_argv[0].c_str(), cmd_argv);
-            if(status == -1) { // There was an error
-                fprintf(stderr, "%s\n", strerror(errno));
-                exit(errno);
-            }
-            
-            return 0;
-        } else {
-            int status = 0;
-            wait(&status);
-            // status = WEXITSTATUS(status);
-            // printf("child exited with code %d\n",status);
-        }
     }
     return 0;
 }
