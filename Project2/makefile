@@ -1,3 +1,5 @@
+# Muhsin Fatih Yorulmaz, tuj54686 - Intro Systems Prog & Oper Sys Fall 2018 Project 2
+
 CFLAGS = -Wall -g -std=c++17 -w
 CC = g++
 LIB = -lreadline -lboost_system -lboost_filesystem
