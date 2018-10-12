@@ -279,16 +279,26 @@ int main(int argc, char** argv) {
     };
 
 
+    bool inputFile = argc > 1;
 
     char* buf;
     std::string cmd_line; // string to store next command line
-    while ((buf = readline(prompt())) != nullptr) {
+    while (inputFile || (buf = readline(prompt())) != nullptr) {
+        if(inputFile) {
+            inputFile = false;
+            string path = argv[1];
+            std::ifstream file(path);
+            string content((std::istreambuf_iterator<char>(file)),
+                        (std::istreambuf_iterator<char>()));
+            cmd_line = content;
+        }
+        else
+            cmd_line = std::string(buf);
+
         if (strlen(buf) > 0) {
             add_history(buf);
         }
-
         //
-        cmd_line = std::string(buf);
         // std::getline(std::cin, cmd_line);           // get command line
         vs str_argv = str_split(cmd_line, " ");     // split command line to arguments
         if(!str_argv.size()) continue;
