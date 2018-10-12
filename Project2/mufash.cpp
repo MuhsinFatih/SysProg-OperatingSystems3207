@@ -24,6 +24,7 @@
 #define st  size_t
 #include <boost/algorithm/string.hpp>
 
+
 #include "misc/colors.h" // namespace color
 #include "misc/diag.cpp"
 #include "misc/misc.hpp"
@@ -36,6 +37,8 @@
 using namespace std;
 namespace fs = boost::filesystem;
 
+
+void print_help();
 
 char* USER;
 char* HOSTNAME;
@@ -183,7 +186,7 @@ void built_in_func(string executable_path, vs argv) {
             break;
         }
         case command::help: {
-
+            print_help();
             break;
         }
         case command::pause: {
@@ -211,12 +214,51 @@ typedef struct exec
     redirection redir;
 };
 
+
+vector<vs> help_menu = {
+    {MAGENTA "mufash: mufa-shell, version 0.1.0.0" RESET},
+    {"Usage: [command] [<argument> ...]"},
+    {
+        "Supported I/O redirections:\n"
+        "| < > >> (Pipe, input/output redirection)\n"
+        GREEN "(Chaining redirections is supported)" RESET
+    },
+    {"Built-in commands:"},
+    {""},
+    {"cd:", "change directory"},
+    {"clr:", "clear terminal screen"},
+    {"ls (dir):", "list directory: Supports multiple arguments"},
+    {"environ:", "list environment variables"},
+    {"echo:", "print a string to std_out"},
+    {"help:", "display this message"},
+    {"pause:", "waits until user presses enter"},
+    {"quit (exit):", "quit terminal"}
+};
+void print_help() {
+    vector<size_t> largest_len = {};
+    for(auto &v : help_menu) {
+        size_t len = 0;
+        if(v.size() > largest_len.size())
+            largest_len.insert(largest_len.end(), v.size() - largest_len.size(), 0);
+        for(size_t i=0; i<v.size(); ++i) {
+            if(i!=v.size()-1 && v[i].length() > largest_len[i])
+                largest_len[i] = v[i].length();
+        }
+    }
+    for(auto &v : help_menu) {
+        for(size_t i=0; i<v.size(); ++i) {
+            printf("%-*s", largest_len[i] + 5, v[i].c_str());
+        }
+        cout << endl;
+    }
+}
+
 int main(int argc, char** argv) {
     print_c_arr(argc, argv);
     // printf("%s\n", std::getenv("PATH")); // get PATH variable to search for executables
     fetchEnviron();
+
     
-    // built_in::init();
     
     built_in_commands = (std::map<string, command>){
         {"cd", command::cd},
