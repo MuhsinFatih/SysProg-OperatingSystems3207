@@ -1,8 +1,9 @@
 CFLAGS = -Wall -g -std=c++17 -w
 CC = g++
+LIB = -lreadline -lboost_system -lboost_filesystem
 
 output: mufash.o diag.o built_in.o
-	$(CC) $(CFLAGS) mufash.o diag.o built_in.o misc.o -o program.out
+	$(CC) $(CFLAGS) $(LIB) mufash.cpp misc/diag.cpp built_in.cpp misc/misc.cpp -o myshell
 
 mufash.o: mufash.cpp
 	$(CC) $(CFLAGS) -c mufash.cpp
