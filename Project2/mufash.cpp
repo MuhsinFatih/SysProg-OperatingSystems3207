@@ -112,6 +112,16 @@ enum class command {
     pause = 6,
     quit = 7,
 };
+std::map<command, bool> is_parent = {
+    {command::cd, 1},
+    {command::clr, 0},
+    {command::ls, 0},
+    {command::environ, 0},
+    {command::echo, 0},
+    {command::help, 0},
+    {command::pause, 1},
+    {command::quit, 1},
+};
 std::map<string, command> built_in_commands;
 void built_in_func(string executable_path, vs argv) {
     command cmd = built_in_commands[executable_path];
@@ -165,6 +175,9 @@ void built_in_func(string executable_path, vs argv) {
             }
             break;
         }
+        case command::quit: {
+            exit(SIGTTIN);
+        }
         default:
             break;
     }
@@ -198,7 +211,8 @@ int main(int argc, char** argv) {
         {"echo", command::echo},
         {"help", command::help},
         {"pause", command::pause},
-        {"quit", command::quit}
+        {"quit", command::quit},
+        {"exit", command::quit}
     };
 
     char* buf;
@@ -348,8 +362,8 @@ int main(int argc, char** argv) {
                 pipe_disconnected = true;
             else if(pipe_disconnected) pipe_disconnected = false;
 
-            if(cmd.built_in && cmd.executable_path == "cd" ){
-                // special case for cd command as it should change the parent process's environment
+            if(cmd.built_in && is_parent[built_in_commands[cmd.executable_path]] ){
+                // special case for commands that change the parent process's environment
                 built_in_func(cmd.executable_path, cmd.args);
                 continue;
             }
