@@ -215,6 +215,7 @@ typedef struct exec
     bool built_in;
     vector<string> args;
     redirection redir;
+    bool background;
 };
 
 
@@ -225,6 +226,11 @@ vector<vs> help_menu = {
         "Supported I/O redirections:\n"
         "| < > >> (Pipe, input/output redirection)\n"
         GREEN "(Chaining redirections is supported)" RESET
+    },
+    {
+        "Escaping is supported\n"
+        "Quote symbol ('') is supported (you can enter argument without escaping characters)\n"
+        "Comments are supported (#)\n"
     },
     {"Built-in commands:"},
     {""},
@@ -298,13 +304,13 @@ int main(int argc, char** argv) {
         if (strlen(buf) > 0) {
             add_history(buf);
         }
-        //
-        // std::getline(std::cin, cmd_line);           // get command line
-        vs str_argv = str_split(cmd_line, " ");     // split command line to arguments
-        if(!str_argv.size()) continue;
-        char** cmd_argv = vs_to_ch(str_argv);
         
-        string cmd = str_argv[0];
+        // std::getline(std::cin, cmd_line);           // get command line
+        // vs str_argv = str_split(cmd_line, " ");     // split command line to arguments
+        // if(!str_argv.size()) continue;
+        // char** cmd_argv = vs_to_ch(str_argv);
+        
+        // string cmd = str_argv[0];
 
         
         // lexer ##########################3
@@ -315,7 +321,8 @@ int main(int argc, char** argv) {
             .executable_path = "",
             .built_in = false,
             .args = (vs){""},
-            .redir = redirection::none
+            .redir = redirection::none,
+            .background = false
         };
         int currentCMD = 0;
         int currentArg = 0;
@@ -342,7 +349,7 @@ int main(int argc, char** argv) {
                     curCmd->args.push_back("");
 
                     ++currentArg;
-                } else if(cur == ';' || cur == '|' || cur == '>') {
+                } else if(cur == ';' || cur == '|' || cur == '>' || cur == '&') {
                     ignorespace = true;
                     
                     if(curCmd->args[currentArg] == "") {
@@ -358,6 +365,8 @@ int main(int argc, char** argv) {
                         else curCmd->redir = redirection::redir_output;
                     } else if(cur == '<' && currentCMD != 0) {
                         cmds[currentCMD-1].redir = redirection::redir_input;
+                    } else if(cur == '&') {
+                        cmds[currentCMD].background = true;
                     }
                     ++currentCMD;
                     currentArg = 0;
@@ -366,7 +375,8 @@ int main(int argc, char** argv) {
                         .executable_path = "",
                         .built_in = false,
                         .args = (vs){""},
-                        .redir = redirection::none
+                        .redir = redirection::none,
+                        .background = false
                     });
                 } else if(cur == '\\') {
                     // take next char no matter what
@@ -399,6 +409,8 @@ int main(int argc, char** argv) {
         if(lastCMD->args.back() == "") {
             lastCMD->args.pop_back(); // parser creates extra arg if there is whitespace at the end, delete it
         }
+        if(lastCMD->args.size() == 0)
+            cmds.pop_back();
         for(size_t i=0; i<cmds.size(); ++i) {
             cmds[i].executable_path = cmds[i].args[0];
         }
@@ -409,14 +421,14 @@ int main(int argc, char** argv) {
 
         for(size_t i=0; i<cmds.size(); ++i) {
             // cout << "-----------------" << endl;
-            // printf("exec_path:%s\nargs:\n", cmds[i].executable_path.c_str());
+            printf("exec_path:%s\nargs:\n", cmds[i].executable_path.c_str()); // TODO: delete
             for(size_t k=0; k<cmds[i].args.size();++k) {
-                // cout << cmds[i].args[k] << endl;
+                cout << cmds[i].args[k] << endl; // TODO: delete
             }
             if(skip_cmd) {skip_cmd = false; continue;}
             exec cmd = cmds[i];
             if(map_contains(built_in_commands, cmd.executable_path)) {
-                // printf(GREEN "command (%s) is built-in!\n" RESET, cmd.executable_path.c_str());
+                printf(GREEN "command (%s) is built-in!\n" RESET, cmd.executable_path.c_str()); // TODO: delete
                 cmd.built_in = true;
             } else {
                 char* rp = (char*) malloc(PATH_MAX * sizeof(char));
@@ -486,17 +498,6 @@ int main(int argc, char** argv) {
                 skip_cmd = true;
 
             
-            // ilk argümanı al
-            // eğer path a benziyorsa tam yolu bul, // man realpath // RTFM :D
-            // eğer benzemiyorsa path enviroment ile bbinary i bulmaya çalış
-            // executable olduğundan emin ol
-            // ???
-            // profit
-
-            // step = 0
-            // cmds.size();
-            // 
-
             // printf("is_piped:%i\n", cmds[i].redir == redirection::pipe);
         }
 
@@ -506,7 +507,7 @@ int main(int argc, char** argv) {
             close(prev_pipe[i][STDOUT_FILENO]);
         }
         // wait for children to finish
-        for(size_t i=0; i<cmds.size(); ++i) {
+        for(size_t i=0; i<cmds.size() && !cmds[i].background; ++i) {
             int wstatus;
             waitpid(cmds[i].pid, &wstatus, NULL);
         }
