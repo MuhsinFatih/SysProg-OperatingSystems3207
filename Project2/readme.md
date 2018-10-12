@@ -1,4 +1,4 @@
-Note: This file can be viewed as a markdown document
+Note: This file can be viewed as a markdown document  
 Note 2: Documentation includes portions of GNU bash documentation as some of the functionality are very similar (https://linux.die.net/man/1/bash)
 
 # mufash - man page
