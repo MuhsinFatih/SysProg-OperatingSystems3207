@@ -102,6 +102,7 @@ void fetchEnviron() {
     _user = YELLOW; _user.append(USER); _user.append(RESET);
     _host = MAGENTA; _host.append(HOSTNAME); _host.append(RESET);
     _promptArrow = GREEN "➜" RESET;
+    // setenv("SHELL", )
 }
 
 
@@ -257,8 +258,10 @@ int main(int argc, char** argv) {
     print_c_arr(argc, argv);
     // printf("%s\n", std::getenv("PATH")); // get PATH variable to search for executables
     fetchEnviron();
+    char* rp = (char*) malloc(PATH_MAX * sizeof(char));
+    if((rp = realpath(argv[0], rp)) != NULL)
+        setenv("SHELL", rp, 1);
 
-    
     
     built_in_commands = (std::map<string, command>){
         {"cd", command::cd},
