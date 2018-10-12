@@ -53,5 +53,5 @@ string getcwd_string() {
 }
 
 bool isvalid(char buf) {
-    return (buf >= '0' && buf <= '9') || (buf >= 'A' && buf <= 'Z') || (buf >= 'a' && buf <= 'z') || buf == '/' || buf == '-' || buf == '_' || buf == '.' || buf == ',';
+    return (buf >= '0' && buf <= '9') || (buf >= 'A' && buf <= 'Z') || (buf >= 'a' && buf <= 'z') || buf == '/' || buf == '-' || buf == '_' || buf == '.' || buf == ',' || buf == '~';
 }

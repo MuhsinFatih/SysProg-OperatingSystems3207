@@ -69,7 +69,7 @@ void fetchExecutables() {
                     executables.insert(std::pair<string,string>(p.path().filename().string(), p.path().string()));
             } catch(fs::filesystem_error &e) { 
                 if(e.code() != boost::system::errc::permission_denied)
-                    printf("%s: %s\n", p.path().c_str(), e.code().message().c_str());
+                    fprintf(stderr, "%s: %s\n", p.path().c_str(), e.code().message().c_str());
             }
         }
     }
@@ -132,8 +132,10 @@ void built_in_func(string executable_path, vs argv) {
     
     switch (cmd) {
         case command::cd: {
+            if(argv.size()-1 == 0) // no directory is specified: assume "."
+                argv.push_back(std::getenv("HOME"));
             string path = argv[1];
-            
+            path.replace(path.find("~"), string("~").size(), std::getenv("HOME"));
             if(chdir(path.c_str()) != 0) {
                 fprintf(stderr, "cd: %s: %s\n", strerror(errno), argv[1].c_str());
             } else {
@@ -276,6 +278,8 @@ int main(int argc, char** argv) {
         {"exit", command::quit}
     };
 
+
+
     char* buf;
     std::string cmd_line; // string to store next command line
     while ((buf = readline(prompt())) != nullptr) {
@@ -394,15 +398,15 @@ int main(int argc, char** argv) {
         bool skip_cmd = false;
 
         for(size_t i=0; i<cmds.size(); ++i) {
-            cout << "-----------------" << endl;
-            printf("exec_path:%s\nargs:\n", cmds[i].executable_path.c_str());
+            // cout << "-----------------" << endl;
+            // printf("exec_path:%s\nargs:\n", cmds[i].executable_path.c_str());
             for(size_t k=0; k<cmds[i].args.size();++k) {
-                cout << cmds[i].args[k] << endl;
+                // cout << cmds[i].args[k] << endl;
             }
             if(skip_cmd) {skip_cmd = false; continue;}
             exec cmd = cmds[i];
             if(map_contains(built_in_commands, cmd.executable_path)) {
-                printf(GREEN "command (%s) is built-in!\n" RESET, cmd.executable_path.c_str());
+                // printf(GREEN "command (%s) is built-in!\n" RESET, cmd.executable_path.c_str());
                 cmd.built_in = true;
             } else {
                 char* rp = (char*) malloc(PATH_MAX * sizeof(char));
@@ -412,7 +416,7 @@ int main(int argc, char** argv) {
                     cmd.executable_path = executables[cmd.executable_path];
                 }
                 free(rp);
-                printf(CYAN "realpath: %s\n" RESET, cmd.executable_path.c_str());
+                // printf(CYAN "realpath: %s\n" RESET, cmd.executable_path.c_str());
             }
             int* pipefd;
             if(cmd.redir == redirection::pipe) {
@@ -483,7 +487,7 @@ int main(int argc, char** argv) {
             // cmds.size();
             // 
 
-            printf("is_piped:%i\n", cmds[i].redir == redirection::pipe);
+            // printf("is_piped:%i\n", cmds[i].redir == redirection::pipe);
         }
 
         // wait for all pipes to close
