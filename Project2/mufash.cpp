@@ -175,6 +175,22 @@ void built_in_func(string executable_path, vs argv) {
             }
             break;
         }
+        case command::echo: {
+            for(size_t i=1;i<argv.size();++i) {
+                cout << argv[i];
+            }
+            cout << std::endl;
+            break;
+        }
+        case command::help: {
+
+            break;
+        }
+        case command::pause: {
+            while(cin.get() != '\n');
+            break;
+        }
+
         case command::quit: {
             exit(SIGTTIN);
         }
