@@ -1,0 +1,24 @@
+[35mmufash: mufa-shell, version 0.1.0.0[0m
+Usage: [command] [<argument> ...]
+Supported I/O redirections:
+| < > >> (Pipe, input/output redirection)
+[32m(Chaining redirections is supported)[0m
+Escaping is supported
+Quote symbol ('') is supported (you can enter argument without escaping characters)
+Comments are supported (#)
+
+Built-in commands:
+                 
+cd:              change directory
+clr:             clear terminal screen
+ls (dir):        list directory: Supports multiple arguments
+environ:         list environment variables
+echo:            print a string to std_out
+help:            display this message
+pause:           waits until user presses enter
+quit (exit):     quit terminal
+e.txt
+pseudocode.txt
+help.txt
+hello.txt
+output.txt

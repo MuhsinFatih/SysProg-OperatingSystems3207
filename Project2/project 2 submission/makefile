@@ -5,7 +5,7 @@ CC = g++
 LIB = -lreadline -lboost_system -lboost_filesystem
 
 output: mufash.o diag.o built_in.o
-	$(CC) $(CFLAGS) $(LIB) mufash.cpp misc/diag.cpp built_in.cpp misc/misc.cpp -o myshell
+	$(CC) $(CFLAGS) mufash.cpp misc/diag.cpp built_in.cpp misc/misc.cpp $(LIB) -o myshell
 
 
 clean:
