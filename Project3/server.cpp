@@ -28,6 +28,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <mutex>
+#include <condition_variable>
 
 #include "semaphore.cpp"
 #include "colors.h"
@@ -44,7 +46,9 @@ std::set<string> dict;
 vector<pthread_t> worker_threads;
 vector<int*> sockets;
 
-
+semaphore full = semaphore(0);
+semaphore slots = semaphore(NUM_WORKERS);
+std::mutex mtx;
 
 void* logger(void* arg) {
 
@@ -116,8 +120,13 @@ int main(int argc, char** argv) {
             continue;
         }
         puts("connection accepted");
+
+        // producer
+        slots.wait();
+        mtx.lock();
         sockets.push_back(client_socket);
-        
+        mtx.unlock();
+        full.notify();
     }
 
 
@@ -169,12 +178,18 @@ void respond(int socket) {
     }
 }
 
+
+
+// consumer
 void* worker_handler(void* arg) {
-    return 0;
+    full.wait();
+    mtx.lock();
     int* socket = new int(*sockets.back());
     sockets.pop_back();
     respond(*socket);
     delete socket;
+    mtx.unlock();
+    slots.notify();
     return 0;
 }
 

@@ -12,16 +12,18 @@ private:
 
 public:
     // Constructor
-    semaphore(int count = 0) : count_(count) {}
+    semaphore(int count = 0){
+        count_ = count;
+    }
 
 
-    void notify() {
-        std::unique_lock<decltype(mutex_)> lock(mutex_);
+    void notify() { // Vw
+        std::lock_guard<decltype(mutex_)> lock(mutex_);
         ++count_;
         condition_.notify_one();
     }
 
-    void wait() {
+    void wait() { // P
         std::unique_lock<decltype(mutex_)> lock(mutex_);
         while(count_ > 0)
             condition_.wait(lock);
