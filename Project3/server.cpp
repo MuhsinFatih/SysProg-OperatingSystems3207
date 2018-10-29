@@ -48,9 +48,9 @@ int main() {
     // Listen (converts the active socket to a LISTENING socket; can accept connections)
     listen(socket_desc, 3);
     puts("waiting for incoming connections...");
-    while(1) {
-        int c = sizeof(struct sockaddr_in);
-        int new_socket = accept(socket_desc, (struct sockaddr*)&client, (socklen_t*)&c);
+    int new_socket;
+    int c = sizeof(struct sockaddr_in);
+    while(new_socket = accept(socket_desc, (struct sockaddr*)&client, (socklen_t*)&c)) {
         if(new_socket < 0) {
             perror("error: accept failed");
             return -1;
@@ -59,5 +59,6 @@ int main() {
         string buffer; buffer.reserve(1024);
         int val = read(new_socket, (char*)buffer.data(), 1024);
         printf("%s\n", buffer.c_str());
+        close(new_socket);
     }
 }
