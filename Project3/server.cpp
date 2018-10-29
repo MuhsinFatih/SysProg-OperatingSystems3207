@@ -25,40 +25,68 @@
 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <pthread.h>
 
 using namespace std;
 
-int main() {
-    // set up connection to client
-    struct sockaddr_in server, client;
-    char* message;
+void *connection_handler(void*);
 
-    int socket_desc = socket(AF_INET, SOCK_STREAM, 0);
-    if(socket_desc == -1) puts("Error creating socket!\n");
-    // Prepare the sockaddr_instructure
+int main() {
+    int socket_desc, new_socket, c;
+    struct sockaddr_in server, client;
+    char *message;
+
+    socket_desc = socket(AF_INET, SOCK_STREAM, 0);
+    if(socket_desc == -1) printf("could not create socket\n");
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = INADDR_ANY;
-    server.sin_port = htons(8080);
-    // Bind (connect the server's socket address to the socket descriptor); print a message and exit the program if an error occured
-    if(::bind(socket_desc, (struct sockaddr*)&server, sizeof(server)) < 0) {
-        puts("error: bind failed");
+    server.sin_port = htons(8888);
+
+    // bind
+    if(::bind(socket_desc, (struct sockaddr*)&server, sizeof(server))<0) {
+        puts("bind failed!");
         return 1;
     }
-    puts("bind done");
-    // Listen (converts the active socket to a LISTENING socket; can accept connections)
-    listen(socket_desc, 3);
+    puts("bind done!");
+
+    //listen
+    listen(socket_desc, 3);;
+
+    // accept incoming connection
     puts("waiting for incoming connections...");
-    int new_socket;
-    int c = sizeof(struct sockaddr_in);
+    c = sizeof(struct sockaddr_in);
+
     while(new_socket = accept(socket_desc, (struct sockaddr*)&client, (socklen_t*)&c)) {
-        if(new_socket < 0) {
-            perror("error: accept failed");
-            return -1;
+        puts("connection accepted");
+        // respond the client
+        message = "hello client, I have received your connection and now I will assign a handler for you\n";
+        write(new_socket, message, strlen(message));
+        
+        // create thread
+        pthread_t sniffer_thread;
+        if(pthread_create(&sniffer_thread, NULL, connection_handler, (void*) &new_socket) < 0) {
+            perror("could not create thread");
+            return 1;
         }
-        puts("connection accepted!");
-        string buffer; buffer.reserve(1024);
-        int val = read(new_socket, (char*)buffer.data(), 1024);
-        printf("%s\n", buffer.c_str());
-        close(new_socket);
+        puts("handler assigned");
     }
+    if(new_socket < 0) {
+        perror("accept failed!");
+        return 1;
+    }
+    return 0;
+}
+
+void *connection_handler(void *socket_desc) {
+    int sock = *(int*)socket_desc;
+    char* message;
+
+    // send messages to client
+    message = "greetings! I am your connection handler!\n";
+    write(sock, message, strlen(message));
+
+    message = "Its my duty to communicate with you";
+    write(sock, message, strlen(message));
+
+    return 0;
 }
