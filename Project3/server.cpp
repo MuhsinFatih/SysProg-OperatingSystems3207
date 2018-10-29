@@ -10,6 +10,7 @@
 #include <sys/ioctl.h>
 #include <limits>
 
+
 #include <vector>
 #include <map>
 #include <algorithm>
@@ -28,13 +29,35 @@
 #include <netinet/in.h>
 #include <pthread.h>
 
+#include "semaphore.cpp"
+#include "colors.h"
+
 using namespace std;
 
-void *connection_handler(void*);
+void* connection_handler(void*);
+void* worker_handler(void* arg);
 #define DEFAULT_DICTIONARY "dictionary.txt"
 #define DEFAULT_PORT 8888
+#define NUM_WORKERS 10
 
 std::set<string> dict;
+vector<pthread_t> worker_threads;
+vector<int*> sockets;
+
+
+
+void* logger(void* arg) {
+
+}
+
+void launchLogger() {
+    pthread_t* logger_thread = new pthread_t;
+    if(pthread_create(logger_thread, NULL, logger, NULL) < 0) {
+        perror("could not create thread_logger");
+        exit(1);
+    }
+}
+
 
 // test with: "cat <(echo "yey") - | nc 127.0.0.1 8888"
 int main(int argc, char** argv) {
@@ -45,43 +68,22 @@ int main(int argc, char** argv) {
     while(std::getline(infile, line)) {
         dict.insert(line);
     }
-    printf("dict: %i lines\n", dict.size());
+    printf("read dictionary: %i items\n", dict.size());
+    semaphore sem(5);
+
+    // create worker threads
+    
+    for(size_t i = 0; i < NUM_WORKERS; ++i)
+    {
+        pthread_t* worker = new pthread_t();
+        if(pthread_create(worker, NULL, worker_handler, NULL) < 0) {
+        }
+    }
+    printf(MAGENTA "created thread pool\n" RESET);
 
 
-    {
-        auto start = chrono::high_resolution_clock::now();
-        auto search = dict.find("zinging");
-        if(search != dict.end()) {
-            printf("found! %s\n", (*search).c_str());
-        } else {
-            puts("not found!");
-        }
-        auto end = chrono::high_resolution_clock::now();
-        printf("time passed finding: %i microseconds\n",chrono::duration_cast<chrono::microseconds>(end-start).count());
-    }
-    {
-        auto start = chrono::high_resolution_clock::now();
-        auto search = dict.find("Anabel");
-        if(search != dict.end()) {
-            printf("found! %s\n", (*search).c_str());
-        } else {
-            puts("not found!");
-        }
-        auto end = chrono::high_resolution_clock::now();
-        printf("time passed finding: %i microseconds\n",chrono::duration_cast<chrono::microseconds>(end-start).count());
-    }
-    {
-        auto start = chrono::high_resolution_clock::now();
-        auto search = dict.find("gonad");
-        if(search != dict.end()) {
-            printf("found! %s\n", (*search).c_str());
-        } else {
-            puts("not found!");
-        }
-        auto end = chrono::high_resolution_clock::now();
-        printf("time passed finding: %i microseconds\n",chrono::duration_cast<chrono::microseconds>(end-start).count());
-    }
-    // server
+
+    // ========================= server =========================
     int socket_desc, c;
     struct sockaddr_in server, client;
     char *message;
@@ -90,21 +92,37 @@ int main(int argc, char** argv) {
     if(socket_desc == -1) printf("could not create socket\n");
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = INADDR_ANY;
-    server.sin_port = htons(8888);
+    server.sin_port = htons(DEFAULT_PORT);
 
     // bind
     if(::bind(socket_desc, (struct sockaddr*)&server, sizeof(server))<0) {
         puts("bind failed!");
         return 1;
     }
-    puts("bind done!");
 
     //listen
-    listen(socket_desc, 3);;
+    listen(socket_desc, 3);
 
     // accept incoming connection
-    puts("waiting for incoming connections...");
+    puts(CYAN "waiting for incoming connections..." RESET);
     c = sizeof(client);
+
+    while(true) {
+        int* client_socket = new int;
+        *client_socket = accept(socket_desc, (struct sockaddr*)&client, (socklen_t*)&c);
+        cout << *client_socket << endl;
+        if(*client_socket < 0) {
+            perror("accept failed!");
+            continue;
+        }
+        puts("connection accepted");
+        sockets.push_back(client_socket);
+        
+    }
+
+
+
+
 
     while(true) {
         int* client_socket = new int;
@@ -132,7 +150,39 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-void *connection_handler(void* socket_desc) {
+void respond(int socket) {
+    string word; word.reserve(30);
+    int read_size;
+    while((read_size = recv(socket, &word[0], 30, 0)) > 0) {
+        auto start = chrono::high_resolution_clock::now();
+        bool found = dict.find(word) != dict.end();
+        auto end = chrono::high_resolution_clock::now();
+        printf("time passed finding: %i microseconds\n",chrono::duration_cast<chrono::microseconds>(end-start).count());
+        string response = word + (found ? "OK" : "MISSPELLED");
+        write(socket, response.c_str(), response.length());
+    }
+    if(read_size == 0) {
+        puts("client disconnected");
+        fflush(stdout);
+    } else if(read_size == -1) {
+        perror("recv failed");
+    }
+}
+
+void* worker_handler(void* arg) {
+    return 0;
+    int* socket = new int(*sockets.back());
+    sockets.pop_back();
+    respond(*socket);
+    delete socket;
+    return 0;
+}
+
+
+
+
+
+void* connection_handler(void* socket_desc) {
     int sock = *(int*)socket_desc;
     cout << sock << endl;
     char* message;
