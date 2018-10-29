@@ -31,8 +31,10 @@ using namespace std;
 
 void *connection_handler(void*);
 
+
+// test with: "cat <(echo "yey") - | nc 127.0.0.1 8888"
 int main() {
-    int socket_desc, new_socket, c;
+    int socket_desc, c;
     struct sockaddr_in server, client;
     char *message;
 
@@ -54,39 +56,60 @@ int main() {
 
     // accept incoming connection
     puts("waiting for incoming connections...");
-    c = sizeof(struct sockaddr_in);
+    c = sizeof(client);
 
-    while(new_socket = accept(socket_desc, (struct sockaddr*)&client, (socklen_t*)&c)) {
+    while(true) {
+        int* client_socket = new int;
+        *client_socket = accept(socket_desc, (struct sockaddr*)&client, (socklen_t*)&c);
+        cout << *client_socket << endl;
+        if(*client_socket < 0) {
+            perror("accept failed!");
+            continue;
+        }
         puts("connection accepted");
         // respond the client
         message = "hello client, I have received your connection and now I will assign a handler for you\n";
-        write(new_socket, message, strlen(message));
+        write(*client_socket, message, strlen(message));
         
         // create thread
-        pthread_t sniffer_thread;
-        if(pthread_create(&sniffer_thread, NULL, connection_handler, (void*) &new_socket) < 0) {
+        pthread_t* sniffer_thread = new pthread_t();
+        
+        if(pthread_create(sniffer_thread, NULL, connection_handler, (void*) client_socket) < 0) {
             perror("could not create thread");
             return 1;
         }
         puts("handler assigned");
     }
-    if(new_socket < 0) {
-        perror("accept failed!");
-        return 1;
-    }
+    
     return 0;
 }
 
-void *connection_handler(void *socket_desc) {
+void *connection_handler(void* socket_desc) {
     int sock = *(int*)socket_desc;
+    cout << sock << endl;
     char* message;
 
     // send messages to client
     message = "greetings! I am your connection handler!\n";
     write(sock, message, strlen(message));
 
-    message = "Its my duty to communicate with you";
+    message = "Its my duty to communicate with you\n";
     write(sock, message, strlen(message));
 
+    // receive a message from client
+    int read_size;
+    char client_message[2000];
+    while((read_size = recv(sock,client_message, 2000, 0)) > 0) {
+        write(sock, "you said: ", strlen("you said: "));
+        write(sock, client_message, strlen(client_message));
+    }
+    if(read_size == 0) {
+        puts("client disconnected");
+        fflush(stdout);
+    } else if(read_size == -1) {
+        perror("recv failed");
+    }
+
+    delete socket_desc;
     return 0;
 }
