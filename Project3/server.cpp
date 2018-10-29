@@ -13,6 +13,7 @@
 #include <vector>
 #include <map>
 #include <algorithm>
+#include <chrono>
 
 #define REP(size) for(size_t i=0, length=size; i<length; ++i)
 #define REPW(size)  size_t w,length; length=size; while(w<length)
@@ -30,10 +31,57 @@
 using namespace std;
 
 void *connection_handler(void*);
+#define DEFAULT_DICTIONARY "dictionary.txt"
+#define DEFAULT_PORT 8888
 
+std::set<string> dict;
 
 // test with: "cat <(echo "yey") - | nc 127.0.0.1 8888"
-int main() {
+int main(int argc, char** argv) {
+
+    std::ifstream infile(DEFAULT_DICTIONARY);
+
+    string line;
+    while(std::getline(infile, line)) {
+        dict.insert(line);
+    }
+    printf("dict: %i lines\n", dict.size());
+
+
+    {
+        auto start = chrono::high_resolution_clock::now();
+        auto search = dict.find("zinging");
+        if(search != dict.end()) {
+            printf("found! %s\n", (*search).c_str());
+        } else {
+            puts("not found!");
+        }
+        auto end = chrono::high_resolution_clock::now();
+        printf("time passed finding: %i microseconds\n",chrono::duration_cast<chrono::microseconds>(end-start).count());
+    }
+    {
+        auto start = chrono::high_resolution_clock::now();
+        auto search = dict.find("Anabel");
+        if(search != dict.end()) {
+            printf("found! %s\n", (*search).c_str());
+        } else {
+            puts("not found!");
+        }
+        auto end = chrono::high_resolution_clock::now();
+        printf("time passed finding: %i microseconds\n",chrono::duration_cast<chrono::microseconds>(end-start).count());
+    }
+    {
+        auto start = chrono::high_resolution_clock::now();
+        auto search = dict.find("gonad");
+        if(search != dict.end()) {
+            printf("found! %s\n", (*search).c_str());
+        } else {
+            puts("not found!");
+        }
+        auto end = chrono::high_resolution_clock::now();
+        printf("time passed finding: %i microseconds\n",chrono::duration_cast<chrono::microseconds>(end-start).count());
+    }
+    // server
     int socket_desc, c;
     struct sockaddr_in server, client;
     char *message;
