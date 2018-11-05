@@ -16,8 +16,7 @@ public:
         count_ = count;
     }
 
-
-    void notify() { // Vw
+    void notify() { // V
         std::lock_guard<decltype(mutex_)> lock(mutex_);
         ++count_;
         condition_.notify_one();
@@ -25,7 +24,7 @@ public:
 
     void wait() { // P
         std::unique_lock<decltype(mutex_)> lock(mutex_);
-        while(count_ > 0)
+        while(count_ == 0)
             condition_.wait(lock);
         --count_;
     }

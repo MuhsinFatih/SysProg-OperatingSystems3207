@@ -35,7 +35,7 @@ int main() {
     }
     auto serv_addr = (struct sockaddr_in) {
         .sin_addr = AF_INET,
-        .sin_port = htons(8080)
+        .sin_port = htons(8888)
     };
     if(inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr)<=0)  
     { 
@@ -54,5 +54,6 @@ int main() {
     int valread = read(sock, buffer, 1024);
     printf("read the response!\n");
     printf("%s\n", buffer);
+    close(sock);
     return 0;
 }

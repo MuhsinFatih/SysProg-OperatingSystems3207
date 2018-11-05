@@ -33,6 +33,7 @@
 
 #include "semaphore.cpp"
 #include "colors.h"
+#include "consumer_producer_queue.hpp"
 
 using namespace std;
 
@@ -42,16 +43,20 @@ void* worker_handler(void* arg);
 #define DEFAULT_PORT 8888
 #define NUM_WORKERS 10
 
+/* Forward declarations */
+void respond(int socket);
+/* Forward declerations end */
+
+
 std::set<string> dict;
 vector<pthread_t> worker_threads;
-vector<int*> sockets;
+ConsumerProducerQueue<int> sockets(0);
 
-semaphore full = semaphore(0);
-semaphore slots = semaphore(NUM_WORKERS);
-std::mutex mtx;
+pthread_cond_t cond;
+
 
 void* logger(void* arg) {
-
+    
 }
 
 void launchLogger() {
@@ -62,6 +67,16 @@ void launchLogger() {
     }
 }
 
+void addworker(int client_socket) {
+    sockets.add(client_socket);
+}
+
+void* worker_handler(void* arg) {
+    int socket = sockets.consume();
+    respond(socket);
+    close(socket);
+    return 0;
+}
 
 // test with: "cat <(echo "yey") - | nc 127.0.0.1 8888"
 int main(int argc, char** argv) {
@@ -112,21 +127,16 @@ int main(int argc, char** argv) {
     c = sizeof(client);
 
     while(true) {
-        int* client_socket = new int;
-        *client_socket = accept(socket_desc, (struct sockaddr*)&client, (socklen_t*)&c);
-        cout << *client_socket << endl;
-        if(*client_socket < 0) {
+        int client_socket = accept(socket_desc, (struct sockaddr*)&client, (socklen_t*)&c);
+        cout << client_socket << endl;
+        if(client_socket < 0) {
             perror("accept failed!");
             continue;
         }
         puts("connection accepted");
 
         // producer
-        slots.wait();
-        mtx.lock();
-        sockets.push_back(client_socket);
-        mtx.unlock();
-        full.notify();
+        addworker(client_socket);
     }
 
 
@@ -134,17 +144,17 @@ int main(int argc, char** argv) {
 
 
     while(true) {
-        int* client_socket = new int;
-        *client_socket = accept(socket_desc, (struct sockaddr*)&client, (socklen_t*)&c);
-        cout << *client_socket << endl;
-        if(*client_socket < 0) {
+        // int* client_socket = new int;
+        int client_socket = accept(socket_desc, (struct sockaddr*)&client, (socklen_t*)&c);
+        cout << client_socket << endl;
+        if(client_socket < 0) {
             perror("accept failed!");
             continue;
         }
         puts("connection accepted");
         // respond the client
         message = "hello client, I have received your connection and now I will assign a handler for you\n";
-        write(*client_socket, message, strlen(message));
+        write(client_socket, message, strlen(message));
         
         // create thread
         pthread_t* sniffer_thread = new pthread_t();
@@ -180,18 +190,6 @@ void respond(int socket) {
 
 
 
-// consumer
-void* worker_handler(void* arg) {
-    full.wait();
-    mtx.lock();
-    int* socket = new int(*sockets.back());
-    sockets.pop_back();
-    respond(*socket);
-    delete socket;
-    mtx.unlock();
-    slots.notify();
-    return 0;
-}
 
 
 
