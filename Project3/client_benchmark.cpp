@@ -13,6 +13,8 @@
 #include <vector>
 #include <map>
 #include <algorithm>
+#include <chrono>
+#include <thread>
 
 #define REP(size) for(size_t i=0, length=size; i<length; ++i)
 #define REPW(size)  size_t w,length; length=size; while(w<length)
@@ -29,9 +31,10 @@
 
 void* client(void* arg) {
     while(true) {
+        printf("thread_id:%i\n", std::this_thread::get_id());
         int sock;
         if((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-            puts("error creating socket");
+            // puts("error creating socket");
         }
         auto serv_addr = (struct sockaddr_in) {
             .sin_addr = AF_INET,
@@ -45,25 +48,29 @@ void* client(void* arg) {
         char* hello = "Abel";
         if(connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
             puts("connection failed!");
+        } else {
+            write(sock, hello, strlen(hello));
+            printf("said hello!\n");
+            char buffer[1024];
+            int valread = read(sock, buffer, 1024);
+            printf("read the response!\n");
+            printf("%s\n", buffer);
         }
-        send(sock, hello, strlen(hello), 0);
-        printf("said hello!\n");
-        char buffer[1024];
-        int valread = read(sock, buffer, 1024);
-        printf("read the response!\n");
-        printf("%s\n", buffer);
         close(sock);
-        return 0;
+        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
 
 
 int main() {
-    for(size_t i=0; i<20; ++i) {
+    pthread_t* w1;
+    for(size_t i=0; i<15; ++i) {
         pthread_t* worker = new pthread_t();
+        w1 = worker;
         if(pthread_create(worker, NULL, client, NULL) < 0) {
             perror("could not create thread!\n");
         }
     }
+    pthread_join(*w1, NULL);
 }
 

@@ -14,6 +14,7 @@
 #include <map>
 #include <algorithm>
 #include <chrono>
+#include <thread>
 
 #define REP(size) for(size_t i=0, length=size; i<length; ++i)
 #define REPW(size)  size_t w,length; length=size; while(w<length)
@@ -61,9 +62,12 @@ void addsocket(int client_socket) {
 }
 
 void* worker_handler(void* arg) {
-    int socket = sockets.consume();
-    respond(socket);
-    close(socket);
+    while(true){
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        int socket = sockets.consume();
+        respond(socket);
+        close(socket);
+    }
     return 0;
 }
 
@@ -74,6 +78,7 @@ void* logger_handler(void* arg) {
         logFile << logtxt;
         logFile.flush();
         printf("%s\n", logtxt.c_str());
+        lock.unlock();
     }
     return 0;
 }
