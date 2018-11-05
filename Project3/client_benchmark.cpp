@@ -31,10 +31,10 @@
 
 void* client(void* arg) {
     while(true) {
-        printf("thread_id:%i\n", std::this_thread::get_id());
         int sock;
         if((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-            // puts("error creating socket");
+            puts("error creating socket");
+            continue;
         }
         auto serv_addr = (struct sockaddr_in) {
             .sin_addr = AF_INET,
@@ -48,6 +48,7 @@ void* client(void* arg) {
         char* hello = "Abel";
         if(connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
             puts("connection failed!");
+            continue;
         } else {
             write(sock, hello, strlen(hello));
             printf("said hello!\n");
@@ -63,14 +64,16 @@ void* client(void* arg) {
 
 
 int main() {
-    pthread_t* w1;
-    for(size_t i=0; i<15; ++i) {
-        pthread_t* worker = new pthread_t();
-        w1 = worker;
-        if(pthread_create(worker, NULL, client, NULL) < 0) {
-            perror("could not create thread!\n");
-        }
-    }
-    pthread_join(*w1, NULL);
+    client(NULL);
+    // pthread_t* w1;
+    // for(size_t i=0; i<15; ++i) {
+    //     pthread_t* worker = new pthread_t();
+    //     w1 = worker;
+    //     if(pthread_create(worker, NULL, client, NULL) < 0) {
+    //         perror("could not create thread!\n");
+    //     }
+    // }
+    // pthread_join(*w1, NULL);
+    // printf("asdf\n");
 }
 
