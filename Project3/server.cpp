@@ -162,18 +162,22 @@ int main(int argc, char** argv) {
 
 void respond(int socket) {
     string log_txt;
-    string word; word.reserve(30);
+    char buffer[30];
+    string word;
     int read_size;
-    while((read_size = recv(socket, &word[0], 30, 0)) > 0) {
-        word = word.c_str(); // TODO: do this properly
+    while((read_size = recv(socket, buffer, 30, 0)) > 0) {
+        word = buffer;
+        // remove_if(word.begin(), word.end(), isspace);
+        auto asdf = word.c_str();
         auto start = chrono::high_resolution_clock::now();
-        bool found = dict.find(word.c_str()) != dict.end();
+        bool found = dict.find(buffer) != dict.end();
         auto end = chrono::high_resolution_clock::now();
         append_format(log_txt,"{\n\ttime passed finding: %i microseconds\n",chrono::duration_cast<chrono::microseconds>(end-start).count());
         string ok = (found ? "OK" : "MISSPELLED");
         string response = word + ok;
         append_format(log_txt, "\t%s %s\n", word.c_str(), ok.c_str());
         write(socket, response.c_str(), response.length());
+        
     }
     if(read_size == 0) {
         log_txt += "\tclient disconnected\n";

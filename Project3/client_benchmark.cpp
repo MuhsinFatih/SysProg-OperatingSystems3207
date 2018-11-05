@@ -45,7 +45,7 @@ void* client(void* arg) {
             printf("\nInvalid address/ Address not supported \n"); 
         } 
     
-        char* hello = "Abel";
+        char* hello = "hello\n";
         if(connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
             puts("connection failed!");
             continue;
