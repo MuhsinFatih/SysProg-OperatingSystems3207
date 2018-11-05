@@ -43,7 +43,7 @@ int main() {
         return -1;
     } 
    
-    char* hello = "hello from client\n";
+    char* hello = "Abel";
     if(connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
         puts("connection failed!");
         return -1;

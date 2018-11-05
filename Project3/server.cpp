@@ -125,7 +125,7 @@ int main(int argc, char** argv) {
     // accept incoming connection
     puts(CYAN "waiting for incoming connections..." RESET);
     c = sizeof(client);
-
+    
     while(true) {
         int client_socket = accept(socket_desc, (struct sockaddr*)&client, (socklen_t*)&c);
         cout << client_socket << endl;
@@ -174,7 +174,7 @@ void respond(int socket) {
     int read_size;
     while((read_size = recv(socket, &word[0], 30, 0)) > 0) {
         auto start = chrono::high_resolution_clock::now();
-        bool found = dict.find(word) != dict.end();
+        bool found = dict.find(word.c_str()) != dict.end();
         auto end = chrono::high_resolution_clock::now();
         printf("time passed finding: %i microseconds\n",chrono::duration_cast<chrono::microseconds>(end-start).count());
         string response = word + (found ? "OK" : "MISSPELLED");

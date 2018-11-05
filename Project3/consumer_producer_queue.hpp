@@ -18,10 +18,11 @@ public:
 	
 	void add(T request) {
 		std::unique_lock<std::mutex> lock(mutex);
-		cond.wait(lock, [this]{return maxsize &&( queue.size() < maxsize);}); // wait until there is slot available
+		cond.wait(lock, [this]{return !maxsize ||( queue.size() < maxsize);}); // wait until there is slot available
 		queue.push(request);
 		lock.unlock();
 		cond.notify_all();
+		printf("added\n");
 	}
 
 	T consume() {
