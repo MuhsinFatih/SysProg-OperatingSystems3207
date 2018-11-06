@@ -6,7 +6,7 @@ LIB = -lpthread
 
 output: spellchecker.o
 	$(CC) $(CFLAGS) $(LIB) server.cpp -o spellchecker
-	$(CC) $(CFLAGS) $(LIB) client_benchmark.cpp -o client
+	$(CC) $(CFLAGS) $(LIB) client_benchmark.cpp -o client_benchmark
 
 
 spellchecker.o: server.cpp
@@ -16,4 +16,4 @@ client.o: client_benchmark.cpp
 	$(CC) $(CFLAGS) -c client_benchmark.cpp
 
 clean:
-	@rm -rf *.o *.out client spellchecker *.dSYM
+	@rm -rf *.o *.out client client_benchmark spellchecker *.dSYM

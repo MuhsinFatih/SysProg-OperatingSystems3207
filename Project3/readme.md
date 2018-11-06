@@ -38,4 +38,4 @@ Also included is a benchmarking client called `client_benchmark` which creates 1
 to start the client for testing. (Note, I was never able to access cis-linux servers, these tests however produce consistent correct results)
 
 ## Building
-Simply run `make`, and a file named `spellchecker`, and one named `client` will be built.
+Simply run `make`, and a file named `spellchecker`, and one named `client_benchmark` will be built.
