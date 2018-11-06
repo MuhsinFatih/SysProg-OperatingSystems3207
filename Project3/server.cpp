@@ -179,6 +179,7 @@ void respond(int socket) {
     while(true) {
         char* buffer = (char*)malloc(sizeof(char) * 30);
         if((read_size = recv(socket, buffer, 30, 0)) > 0) {
+            buffer[read_size] = '\0';
             word = buffer;
             auto f = [](unsigned char const c) { return std::isspace(c); };
             word.erase(remove_if(word.begin(), word.end(), f), word.end());
