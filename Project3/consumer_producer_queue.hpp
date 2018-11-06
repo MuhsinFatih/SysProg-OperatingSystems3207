@@ -22,7 +22,7 @@ public:
 		queue.push(request);
 		lock.unlock();
 		cond.notify_all();
-		printf("added, %i\n", queue.size());
+		// printf("added, %i\n", queue.size());
 	}
 
 	T consume() {

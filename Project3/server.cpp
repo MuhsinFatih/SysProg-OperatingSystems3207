@@ -85,8 +85,20 @@ void* logger_handler(void* arg) {
 
 // test with: "cat <(echo "yey") - | nc 127.0.0.1 8888"
 int main(int argc, char** argv) {
-
-    std::ifstream infile(DEFAULT_DICTIONARY);
+    string dictfile = DEFAULT_DICTIONARY;
+    int port = DEFAULT_PORT;
+    try {
+        if(argc == 2) {
+            dictfile = argv[1];
+        } else if (argc == 3) {
+            dictfile = argv[1];
+            port = atoi(argv[2]);
+        }
+    } catch (const std::exception&) {
+        perror("usage: spellchecker dict_file port");
+        exit(1);
+    }
+    std::ifstream infile(dictfile);
     logFile.open(LOGFILE, std::ofstream::app);
 
     string line;
@@ -128,7 +140,7 @@ int main(int argc, char** argv) {
         if(socket_desc == -1) printf("could not create socket\n");
         server.sin_family = AF_INET;
         server.sin_addr.s_addr = INADDR_ANY;
-        server.sin_port = htons(DEFAULT_PORT);
+        server.sin_port = htons(port);
 
         // bind
         if(::bind(socket_desc, (struct sockaddr*)&server, sizeof(server))<0) {
@@ -162,31 +174,38 @@ int main(int argc, char** argv) {
 
 void respond(int socket) {
     string log_txt;
-    char buffer[30];
     string word;
     int read_size;
-    while((read_size = recv(socket, buffer, 30, 0)) > 0) {
-        word = buffer;
-        // remove_if(word.begin(), word.end(), isspace);
-        auto asdf = word.c_str();
-        auto start = chrono::high_resolution_clock::now();
-        bool found = dict.find(buffer) != dict.end();
-        auto end = chrono::high_resolution_clock::now();
-        append_format(log_txt,"{\n\ttime passed finding: %i microseconds\n",chrono::duration_cast<chrono::microseconds>(end-start).count());
-        string ok = (found ? "OK" : "MISSPELLED");
-        string response = word + ok;
-        append_format(log_txt, "\t%s %s\n", word.c_str(), ok.c_str());
-        write(socket, response.c_str(), response.length());
-        
+    while(true) {
+        char* buffer = (char*)malloc(sizeof(char) * 30);
+        printf("---\n");
+        if((read_size = recv(socket, buffer, 30, 0)) > 0) {
+            word = buffer;
+            auto f = [](unsigned char const c) { return std::isspace(c); };
+            word.erase(remove_if(word.begin(), word.end(), f), word.end());
+            
+            auto asdf = word.c_str();
+            auto start = chrono::high_resolution_clock::now();
+            bool found = dict.find(word.c_str()) != dict.end();
+            auto end = chrono::high_resolution_clock::now();
+            append_format(log_txt,"{\n\ttime passed finding: %i microseconds\n",chrono::duration_cast<chrono::microseconds>(end-start).count());
+            string ok = (found ? "OK" : "MISSPELLED");
+            string response = word + ok;
+            append_format(log_txt, "\t%s %s\n", word.c_str(), ok.c_str());
+            write(socket, response.c_str(), response.length());
+            
+        }
+        if(read_size == 0) {
+            log_txt += "\tclient disconnected\n}\n";
+            fflush(stdout);
+        } else if(read_size == -1) {
+            log_txt += "\trecv failed\n}\n";
+        } else {
+            log_queue.add(log_txt);
+            continue;
+        }
+        log_queue.add(log_txt);
+        return;
+        // cout << log_txt;
     }
-    if(read_size == 0) {
-        log_txt += "\tclient disconnected\n";
-        fflush(stdout);
-    } else if(read_size == -1) {
-        log_txt += "\trecv failed\n";
-    }
-    log_txt += "}\n";
-    
-    // cout << log_txt;
-    log_queue.add(log_txt);
 }
