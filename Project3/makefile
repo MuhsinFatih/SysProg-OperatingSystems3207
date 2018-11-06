@@ -2,13 +2,18 @@
 
 CFLAGS = -Wall -g -std=c++17 -w
 CC = g++
-LIB = -lthread
+LIB = -lpthread
 
-output: spellchecker
+output: spellchecker.o
 	$(CC) $(CFLAGS) $(LIB) server.cpp -o spellchecker
-	
-output: client
 	$(CC) $(CFLAGS) $(LIB) client_benchmark.cpp -o client
 
+
+spellchecker.o: server.cpp
+	$(CC) $(CFLAGS) -c server.cpp
+
+client.o: client_benchmark.cpp
+	$(CC) $(CFLAGS) -c client_benchmark.cpp
+
 clean:
-	@rm *.o *.out
+	@rm -f *.o *.out client spellchecker
