@@ -30,50 +30,51 @@
 #include <arpa/inet.h>
 
 void* client(void* arg) {
+    bool i = false;
+    int sock;
+    if((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        puts("error creating socket");
+        return NULL;
+    }
+    auto serv_addr = (struct sockaddr_in) {
+        .sin_addr = AF_INET,
+        .sin_port = htons(8888)
+    };
+    if(inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr)<=0)  
+    { 
+        printf("\nInvalid address/ Address not supported \n"); 
+    }
     while(true) {
-        int sock;
-        if((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-            puts("error creating socket");
-            continue;
-        }
-        auto serv_addr = (struct sockaddr_in) {
-            .sin_addr = AF_INET,
-            .sin_port = htons(8888)
-        };
-        if(inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr)<=0)  
-        { 
-            printf("\nInvalid address/ Address not supported \n"); 
-        } 
-    
-        char* hello = "hello\n";
+        i = !i;
+        char* hello = (i ? (char*)"hello\n" : (char*)"zubala\n"); // zubala is a word I made up and is not in the dictionary
+
         if(connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
             puts("connection failed!");
-            continue;
-        } else {
+            return NULL;
+        }
+        {
             write(sock, hello, strlen(hello));
-            printf("said hello!\n");
             char buffer[1024];
             int valread = read(sock, buffer, 1024);
             printf("read the response!\n");
             printf("%s\n", buffer);
         }
-        close(sock);
         // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+       close(sock);
     }
 }
 
 
 int main() {
-    client(NULL);
-    // pthread_t* w1;
-    // for(size_t i=0; i<15; ++i) {
-    //     pthread_t* worker = new pthread_t();
-    //     w1 = worker;
-    //     if(pthread_create(worker, NULL, client, NULL) < 0) {
-    //         perror("could not create thread!\n");
-    //     }
-    // }
-    // pthread_join(*w1, NULL);
-    // printf("asdf\n");
+    // client(NULL);
+    pthread_t* w1;
+    for(size_t i=0; i<5; ++i) {
+        pthread_t* worker = new pthread_t();
+        w1 = worker;
+        if(pthread_create(worker, NULL, client, NULL) < 0) {
+            perror("could not create thread!\n");
+        }
+    }
+    pthread_join(*w1, NULL);
+    printf("asdf\n");
 }
-
