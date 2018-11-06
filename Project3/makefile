@@ -16,4 +16,4 @@ client.o: client_benchmark.cpp
 	$(CC) $(CFLAGS) -c client_benchmark.cpp
 
 clean:
-	@rm -f *.o *.out client spellchecker
+	@rm -rf *.o *.out client spellchecker *.dSYM
