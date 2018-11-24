@@ -1,0 +1,20 @@
+{
+    "version"       : "0.2.0",
+    "configurations": [
+        
+        {
+            "name"           : "(lldb) Launch",
+            "type"           : "cppdbg",
+            "request"        : "launch",
+            "program"        : "${workspaceRoot}/debug.out",
+            "args"           : [],
+            "stopAtEntry"    : false,
+            "cwd"            : "${workspaceFolder}",
+            "environment"    : [],
+            "externalConsole": false,
+            "MIMode"         : "lldb",
+            "preLaunchTask"  : "buildCurrentFile_C",
+        },
+        
+    ]
+}
