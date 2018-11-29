@@ -39,6 +39,19 @@ struct super_block {
 	uint16_t next_volumes; // next volumes. no limit on number of indirections
 } __attribute((packed));
 
+// size: 8 + 8 + 1 + 8 * 4 = 49
+// rest of the size is for file name;
+struct inode {
+	uint64_t owner_group_id;
+	uint64_t permissions;
+	char isDirectory;
+	char filename[207];
+	uint64_t data_blocks[10];
+	uint64_t indirect1[10];
+	uint64_t indirect2[10];
+	uint64_t indirect3[10];
+};
+
 void print_superblock(super_block* sb) {
 	printf(BOLDWHITE "volume_name: %s\n" RESET, sb->volume_name);
 	printf(BOLDWHITE "block_size: %i\n" RESET, sb->block_size);
@@ -52,10 +65,8 @@ void print_superblock(super_block* sb) {
 
 const char zeros[4096] = {0};
 void purge(FILE* file, size_t length) {
-	while(length>sizeof(zeros)) {
-		length -= fwrite(zeros, sizeof(zeros), 1, file) * sizeof(zeros); 
-		printf("%i\n", length);
-	}
+	while(length>sizeof(zeros))
+		length -= fwrite(zeros, sizeof(zeros), 1, file) * sizeof(zeros);
 	while(length)
 		length -= fwrite(zeros, length, 1, file) * length;
 }
@@ -96,16 +107,14 @@ void createDiskImage(string name, string path, size_t size) {
 	// create empty file of given size
 	fseek(file, size, SEEK_SET);
 	fputc('\0', file);
-printf("now at 0x%X\n", ftell(file));
+
 	// write super block
 	fseek(file, 0x00, SEEK_SET);
-printf("now at 0x%X\n", ftell(file));
 	fwrite(&sb, sizeof(super_block), 1, file);
-printf("now at 0x%X\n", ftell(file));
-	char empty = '\0';
+
 	// padding + reserved blocks
-	fwrite(&empty, sizeof(char), 10 + sb.reserved_blocks * sb.block_size, file);
-printf(GREEN "now at 0x%X\n" RESET, ftell(file));
+	purge(file, 10 + sb.reserved_blocks * sb.block_size);
+
 	// purge inode area
 	purge(file, sb.total_inodes * sb.inode_size * sb.block_size);
 	
@@ -121,6 +130,5 @@ printf(GREEN "now at 0x%X\n" RESET, ftell(file));
 int main(int argc, char** argv)
 {
 	createDiskImage("disk_name","disk.img", MB(1));
-	// printf("size: %i\n", sizeof(uint64_t) / sizeof(char));
 	return 0; 
 }
