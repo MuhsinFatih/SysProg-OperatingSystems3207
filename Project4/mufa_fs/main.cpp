@@ -190,6 +190,7 @@ void createDriveImage(string name, string path, size_t size) {
 size_t mmap_inodes(FILE* drive, super_block* sb, char* &buf) {
 	size_t inodes_len = sb->inode_size * sb->block_size * sb->total_inodes;
 	(buf = (char*)malloc(inodes_len));
+	fread(buf, inodes_len, 1, drive);
 	return inodes_len;
 	// return ((buf = (char*)malloc(inodes_len)) != NULL);
 }
@@ -213,7 +214,7 @@ vector<super_block> read_superblock(FILE* drive) {
 
 int main(int argc, char** argv)
 {
-	createDriveImage("drive_name", "drive.img", KB(76));
+	createDriveImage("drive_name", "drive.img", MB(76));
 	// return 0;
 	int fd = open("drive.img", O_RDWR /*| O_EXCL*/, S_IRUSR | S_IWUSR);
 	FILE* file = fdopen(fd, "rb+");
@@ -224,20 +225,11 @@ int main(int argc, char** argv)
 	printf(MAGENTA "reading super_block:\n" RESET);
 	vector<super_block> sb = read_superblock(file);
 	
-	// fseek(file, 0x00, SEEK_SET);
-	// super_block sb;
-	// memset(&sb, '\0', sizeof(super_block));
-	// char first[50] = "asdfasdfasdf";
-	// dumpbytes((unsigned char*)&first,50);
-	// fseek(file, 0x00, SEEK_SET);
-	// fread(&first, sizeof(super_block), 1, file);
-	// dumpbytes((unsigned char*)first,50);
-
 	print_superblock(&sb[0]);
-	// char* inodes;
-	// size_t inodes_len = mmap_inodes(file, &sb, inodes);
+	char* inodes;
+	size_t inodes_len = mmap_inodes(file, &sb[0], inodes);
 
-	// printf("inodes_len = %lu\n", inodes_len);
+	printf("inodes_len = %lu\n", inodes_len);
 	// dumpbytes((unsigned char*)inodes, 0x200);
 	fclose(file);
 	return 0;
