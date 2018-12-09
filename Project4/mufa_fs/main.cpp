@@ -231,6 +231,9 @@ public:
 	inode cwd_node; // current working directory's inode
 	directory_entry cwd; // current working directory's entry
 
+	// pre-calculate variables
+	uint64_t inode_size_byte;
+
 	Instance() {init();}
 	Instance(FILE* file, super_block* sb) {
 		this->drive = file;
@@ -241,18 +244,25 @@ public:
 	 * @brief  common init function for constructors
 	 */
 	void init() {
-		// read & cd into root directory
-		fseek(drive, sb->inodes_start + 0, SEEK_SET); // root is at index zero of inodes
-		inode _inode;
-		if(!fread(&_inode, sizeof(inode), 1, drive)) {
-			fprintf(stderr, "could not read directory!\n");
-			return;
-		}
-		cwd_node = _inode;
-		printf(YELLOW "read inode:\n" RESET);
+		// pre-calculate variables
+		inode_size_byte = sb->inode_size * sb->block_size;
+		// read all inodes
+		fseek(drive, sb->inodes_start, SEEK_SET); // go to the index 0 of inodes
+		// allocate space for all inodes in memory, init to NULL
+		inodes.resize(sb->total_inodes * inode_size_byte);
+		for(size_t i=0; i<sb->total_inodes; ++i) {
+			if(!fread(&inodes[i], inode_size_byte, 1, drive)) {
+				fprintf(stderr, RED "could not read directory!\n" RESET);
+				return;
+			}
+			// printf(BOLDBLUE "now at 0x%X\n" RESET, ftell(drive));
+		} // this for loop will not do n disk requests, as the OS returns larger results from disk to increase effectiveness already. Reading the whole thing into vector directly is a problem with fread
+		// cd into root directory
+		cwd_node = inodes[0];
+		printf(YELLOW "read root inode:\n" RESET);
 		dumpbytes((unsigned char*)&cwd_node, sizeof(inode));
 		cwd = cd(&cwd_node);
-		writeSomething();
+		// writeSomething();
 	}
 	void writeSomething() {
 		tuple<string, uint64_t> subdir = {"subdir", 0};
