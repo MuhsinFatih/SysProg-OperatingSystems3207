@@ -11,7 +11,7 @@
 #define MB(x)   ((size_t) (x) << 20)
 #define GB(x)   ((size_t) (x) << 30)
 #define TB(x)   ((size_t) (x) << 40)
-
+// watch "echo $OFFSET_TEXT; cat drive.img | xxd | head -c5000"
 /* Some stats:
 max file size = 2^64*256/2^70 = 4 Zettabyte. lol
 */
@@ -57,8 +57,8 @@ struct inode {
 	uint64_t indirect3;
 } __attribute((packed));
 
-struct directory {
-	char data[256];
+struct directory_entry {
+	vector<string> children;
 } __attribute((packed));
 
 
@@ -93,16 +93,22 @@ void write_data(inode& i, FILE* drive, super_block* sb) {
 	
 }
 
+void mkdir_root(FILE* drive, super_block* sb) {
+	inode _inode;
+	memset(&_inode, '\0', sizeof(inode));
+	_inode.isDirectory = 1;
+	_inode.parent = '\0'; // 0
+	write_root_inode(_inode, drive, sb);
+}
+
 void mkdir(uint64_t parent, string name, FILE* drive, super_block* sb) {
 	inode _inode;
 	memset(&_inode, '\0', sizeof(inode));
 	_inode.isDirectory = 1;
 	_inode.parent = parent;
 
-	if(parent == NULL)
-		write_root_inode(_inode, drive, sb);
-	else
-		write_inode(_inode, drive, sb);
+	assert(parent != NULL);
+	write_inode(_inode, drive, sb);
 }
 
 void print_superblock(super_block* sb) {
@@ -182,7 +188,7 @@ void createDriveImage(string name, string path, size_t size) {
 	
 	printf("now at 0x%X\n", ftell(file));
 
-	mkdir(0, "root", file, &sb);
+	mkdir_root(file, &sb);
 
 	fclose(file);
 }
@@ -201,7 +207,7 @@ void print_inodes() {
 
 /**
  * @brief  returns all superblocks from drive image. currently only reads first superblock
- * @param  drive: drive file
+ * @param  drive: virtual drive file
  * @retval array of super blocks
  */
 vector<super_block> read_superblock(FILE* drive) {
@@ -212,16 +218,66 @@ vector<super_block> read_superblock(FILE* drive) {
 	return {sb};
 }
 
+
+
+
+class Instance {
+public:
+	FILE* drive; // virtual drive file
+	super_block* sb; // superblock for the volume
+
+	inode cwd; // current working directory
+
+	Instance() {init();}
+	Instance(FILE* file, super_block* sb) {
+		this->drive = file;
+		this->sb = sb;
+		init();
+	}
+    /**
+	 * @brief  common init function for constructors
+	 */
+	void init() {
+		// read & cd into root directory
+		fseek(drive, sb->inodes_start + 0, SEEK_SET); // root is at index zero of inodes
+		inode _inode;
+		if(!fread(&_inode, sizeof(inode), 1, drive)) {
+			fprintf(stderr, "could not read directory!\n");
+			return;
+		}
+		cwd = _inode;
+		printf(YELLOW "read inode:\n" RESET);
+		dumpbytes((unsigned char*)&cwd, sizeof(inode));
+		printf("isDirectory: %i\n",cwd.isDirectory);
+		printf("parent: %lu\n", cwd.parent);
+		
+	}
+	void writeSomething() {
+		
+	}
+    /**
+	 * @brief  reads and generates a directory entry structure for given the inode for the directory
+	 * @param  _inode: inode for the directory
+	 * @retval directory entry populated at run time. Changes to entry need to be committed
+	 */
+	directory_entry cd(inode* _inode){
+		
+	}
+};
+
+
 int main(int argc, char** argv)
 {
-	createDriveImage("drive_name", "drive.img", MB(76));
+	string drive_file = "drive.img";
+	createDriveImage("drive_name", drive_file, MB(76));
 	// return 0;
-	int fd = open("drive.img", O_RDWR /*| O_EXCL*/, S_IRUSR | S_IWUSR);
+	int fd = open(drive_file.c_str(), O_RDWR /*| O_EXCL*/, S_IRUSR | S_IWUSR);
 	FILE* file = fdopen(fd, "rb+");
 	if(fd < 0) {
 		perror("Error reading file drive.img");
 		exit(EXIT_FAILURE);
 	}
+	printf(GREEN "opened virtual disk: %s\n" RESET, drive_file.c_str());
 	printf(MAGENTA "reading super_block:\n" RESET);
 	vector<super_block> sb = read_superblock(file);
 	
@@ -231,6 +287,11 @@ int main(int argc, char** argv)
 
 	printf("inodes_len = %lu\n", inodes_len);
 	// dumpbytes((unsigned char*)inodes, 0x200);
+
+
+
+	printf(MAGENTA "creating a user instance:\n" RESET);
+	Instance instance(file,&sb[0]);
 	fclose(file);
 	return 0;
 }
