@@ -46,11 +46,12 @@ struct super_block {
 	uint16_t next_volumes; // next volumes. no limit on number of indirections
 } __attribute((packed));
 
-// size: 1 + 8 + 80 + 8*3 = 113
+// size: 1 + 8 + 8 + 80 + 8*3 = 121
 struct inode {
 	char isDirectory;
-	uint64_t parent;
-	
+	uint64_t parent; // parent index
+	uint64_t self; // self index
+
 	uint64_t data_blocks[10];
 	uint64_t indirect1;
 	uint64_t indirect2;
@@ -58,7 +59,7 @@ struct inode {
 } __attribute((packed));
 
 struct directory_entry {
-	vector<string> children;
+	vector<tuple<string, uint64_t>> subdir;
 } __attribute((packed));
 
 
@@ -226,7 +227,9 @@ public:
 	FILE* drive; // virtual drive file
 	super_block* sb; // superblock for the volume
 
-	inode cwd; // current working directory
+	vector<inode> inodes; // ALL inodes
+	inode cwd_node; // current working directory's inode
+	directory_entry cwd; // current working directory's entry
 
 	Instance() {init();}
 	Instance(FILE* file, super_block* sb) {
@@ -245,15 +248,22 @@ public:
 			fprintf(stderr, "could not read directory!\n");
 			return;
 		}
-		cwd = _inode;
+		cwd_node = _inode;
 		printf(YELLOW "read inode:\n" RESET);
-		dumpbytes((unsigned char*)&cwd, sizeof(inode));
-		printf("isDirectory: %i\n",cwd.isDirectory);
-		printf("parent: %lu\n", cwd.parent);
-		
+		dumpbytes((unsigned char*)&cwd_node, sizeof(inode));
+		cwd = cd(&cwd_node);
+		writeSomething();
 	}
 	void writeSomething() {
-		
+		tuple<string, uint64_t> subdir = {"subdir", 0};
+		cwd.subdir.push_back(subdir);
+		fseek(drive, sb->data_block_start + cwd_node.data_blocks[0] * sb->inode_size * sb->block_size, SEEK_SET);
+		string dirstr;
+		for(auto [name, p] : cwd.subdir) {
+			dirstr += name + '\0' + to_string(p);
+		}
+		printf("dirstr:%s\n", dirstr.c_str());
+		// fwrite(&cwd.subdir,)
 	}
     /**
 	 * @brief  reads and generates a directory entry structure for given the inode for the directory
@@ -261,7 +271,23 @@ public:
 	 * @retval directory entry populated at run time. Changes to entry need to be committed
 	 */
 	directory_entry cd(inode* _inode){
-		
+		directory_entry dir;
+		string cur = "";
+		for(int i=0; i<10; ++i) {
+			if(_inode->data_blocks[i] != 0 || i==0) { // only first data block can have index 0
+				fseek(drive, sb->data_block_start + _inode->data_blocks[i] * sb->inode_size * sb->block_size, SEEK_SET);
+				printf(GREEN "now at 0x%X\n" RESET, ftell(drive));
+				char data[sb->block_size]; // I thought this allocation was illegal in c++ hehe
+				char* p = data;
+				fread(&data, 1, sb->block_size, drive); // filling into an array, items each of size 1
+				size_t l;
+				while((l = strlen(p)) > 0) {
+					string dirname(p);
+					p += l+1; // skip name and padding zero
+				}
+			}
+		}
+		return dir;
 	}
 };
 
