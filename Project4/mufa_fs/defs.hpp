@@ -42,3 +42,7 @@ void dumpbytes(unsigned char* charPtr, size_t size) {
 	}
 	printf("\n");
 }
+
+bool isvalid(char buf) {
+    return (buf >= '0' && buf <= '9') || (buf >= 'A' && buf <= 'Z') || (buf >= 'a' && buf <= 'z') || buf == '/' || buf == '-' || buf == '_' || buf == '.' || buf == ',' || buf == '~';
+}

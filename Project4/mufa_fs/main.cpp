@@ -9,6 +9,10 @@
 #include <queue>
 #include <sstream>
 
+#include <readline/readline.h>
+#include <readline/history.h>
+
+
 #define KB(x)   ((size_t) (x) << 10)
 #define MB(x)   ((size_t) (x) << 20)
 #define GB(x)   ((size_t) (x) << 30)
@@ -16,7 +20,7 @@
 #define nbit_char(c,n) ((n >> (8-k)) & 1)
 #define ROOT_SELF -1
 // #define DEBUG
-#define TEST
+// #define TEST
 
 // watch "echo $OFFSET_TEXT; cat drive.img | xxd | head -c5000"
 /* Some stats:
@@ -608,11 +612,173 @@ public:
 	}
 };
 
+enum class command {
+    ls = 0,
+    cd = 1,
+	cat = 2,
+	mkdir = 3,
+	touch = 4,
+	write = 5,
+	rm = 6,
+    help = 7,
+};
+std::map<string, command> built_in_commands;
+
+char promptBuffer[PATH_MAX];
+char* prompt() {
+    sprintf(promptBuffer, "mufafs" GREEN " ➜ " RESET);
+    cout << promptBuffer;
+    return "";
+}
+
+enum class redirection
+{none, pipe, redir_output, redir_input, append_output};
+typedef struct exec
+{
+    pid_t pid;
+    string path;
+    bool built_in;
+    vector<string> args;
+    redirection redir;
+    bool background;
+};
+void built_in_func(string path, vs argv, Instance* instance) {
+    command cmd = built_in_commands[path];
+    switch (cmd) {
+        case command::cd: {
+            
+            break;
+        }
+        default:
+            break;
+    }
+}
+void parseCommands(Instance* instance) {
+    built_in_commands = (std::map<string, command>){
+        {"ls" , command::ls},
+        {"cd", command::cd},
+        {"cat", command::cat},
+		{"mkdir", command::mkdir},
+		{"touch", command::touch},
+		{"write", command::write},
+		{"rm", command::rm},
+        {"help", command::help},
+    };
+
+
+
+    char* buf;
+    std::string cmd_line; // string to store next command line
+    while ((buf = readline(prompt())) != nullptr) {
+		
+        cmd_line = std::string(buf);
+
+        if (strlen(buf) > 0) {
+            add_history(buf);
+        }
+        
+        // lexer ##########################3
+
+        vector<exec> cmds;
+        exec first = {
+            .pid = NULL,
+            .path = "",
+            .built_in = false,
+            .args = (vs){""},
+            .redir = redirection::none,
+            .background = false
+        };
+        int currentCMD = 0;
+        int currentArg = 0;
+        int currentStrOffset = 0;
+
+
+        cmds.push_back(first);
+        size_t exec_i;
+        
+        size_t c = cmd_line.length();
+
+        bool ignorespace = false;
+        for(int i=0; i<c; ++i) {
+            char cur = cmd_line[i];
+            struct exec *curCmd = &cmds[currentCMD];
+            
+            if(isvalid(cur)) {
+                ignorespace = false;
+                curCmd->args[currentArg] += cur;
+            } else {
+                if(cur == ' ') {
+                    if(ignorespace) { continue;}
+                    ignorespace = true;
+                    curCmd->args.push_back("");
+
+                    ++currentArg;
+                } else if(cur == ';' || cur == '|' || cur == '>' || cur == '&') {
+                    ignorespace = true;
+                    
+                    if(curCmd->args[currentArg] == "") {
+                        curCmd->args.pop_back();
+                    }
+                    if(cur == ';') curCmd->redir = redirection::none;
+                    else if(cur == '|') curCmd->redir = redirection::pipe;
+                    else if(cur == '>') {
+                        if(i != c-1 && cmd_line[i+1] == '>') {
+                            curCmd->redir = redirection::append_output;
+                            ++i;
+                        }
+                        else curCmd->redir = redirection::redir_output;
+                    } else if(cur == '<' && currentCMD != 0) {
+                        cmds[currentCMD-1].redir = redirection::redir_input;
+                    } else if(cur == '&') {
+                        cmds[currentCMD].background = true;
+                    }
+                    ++currentCMD;
+                    currentArg = 0;
+                    cmds.push_back((exec) {
+                        .pid = NULL,
+                        .path = "",
+                        .built_in = false,
+                        .args = (vs){""},
+                        .redir = redirection::none,
+                        .background = false
+                    });
+                } else if(cur == '\\') {
+                    // take next char no matter what
+                    assert(cmd_line.size() >= i+1);
+                    curCmd->args[currentArg] += cmd_line[++i];
+                } else if(cur == '\'') {
+                    bool escape = false;
+                    
+                    for(i++;i<c;++i) {
+                        char cur2 = cmd_line[i];
+                        if(cur2 == '\'' && !escape) {
+                            break;
+                        } else if(cur2 == '\\') {
+                            escape = !escape;
+                        } else {
+                            escape = false;
+                            curCmd->args[currentArg] += cur2;
+                        }
+                    }
+                } else if(cur == '#') {
+                    for(i++;i<c;++i) {
+                        if(cmd_line[i] == '#') {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+		built_in_func(cmds[0].path, cmds[0].args, instance); // no redirection stuff
+
+	}
+}
+
 
 int main(int argc, char** argv)
 {
 	string drive_file = "drive.img";
-	createDriveImage("drive_name", drive_file, MB(76));
+	createDriveImage("drive_name", drive_file, MB(2));
 	// return 0;
 	int fd = open(drive_file.c_str(), O_RDWR /*| O_EXCL*/, S_IRUSR | S_IWUSR);
 	FILE* file = fdopen(fd, "rb+");
@@ -645,8 +811,8 @@ int main(int argc, char** argv)
 	printf(RED "--rm--\n" RESET);
 	instance.rm("this_is_a_file");
 	instance.ls();
-	
-
+	#else
+	parseCommands(&instance);
 	#endif
 
 	fclose(file);
