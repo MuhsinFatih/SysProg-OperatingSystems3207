@@ -16,6 +16,7 @@
 #define nbit_char(c,n) ((n >> (8-k)) & 1)
 #define ROOT_SELF -1
 // #define DEBUG
+#define TEST
 
 // watch "echo $OFFSET_TEXT; cat drive.img | xxd | head -c5000"
 /* Some stats:
@@ -299,14 +300,15 @@ public:
 		write_inode(_inode, drive, sb); // commit changes to drive
 		inodes_sorted.push(_inode); // reinsert
 	}
-    /**
-     * @brief  create a new file and write it to parent's dir_entry
+	/**
+	 * @brief  create a new file and write it to parent's dir_entry
 	 * @param  name: filename
-     * @retval inode reference
-     */
+	 * @retval inode reference
+	 */
 	inode* touch(inode* parent, string name) {
 		inode* _inode = find_inode();
 		_inode->parent = parent->self;
+		_inode->type = 1;
 		insert_dir_entry(name, parent, _inode);
 		write_inode(_inode, drive, sb); // commit changes to drive
 		#if defined DEBUG
@@ -320,6 +322,50 @@ public:
 		#endif
 		return _inode;
 	}
+	/**
+	 * @brief  this is rm -rf
+	 * @retval true if item found&removed. false if not found
+	 */
+	bool rm(inode* parent, inode* _inode) {
+		auto dir_entry = get_dir_entry(parent);
+		for(size_t i=0; i<dir_entry.subdir.size(); ++i) {
+			if(get<1>(dir_entry.subdir[i]) == _inode->self) {
+				if(_inode->type == 1) {
+					purge_file_contents(_inode);
+					dir_entry.subdir.erase(dir_entry.subdir.begin() + i);
+					string dir_entry_str;
+					for(size_t i=0; i<dir_entry.subdir.size(); ++i)
+						dir_entry_str += get<0>(dir_entry.subdir[i]) + '\0' + to_string(get<1>(dir_entry.subdir[i])) + '\0';
+					write_file(parent, (u_char*)dir_entry_str.c_str(), dir_entry_str.length());
+				} else if(_inode->type == 2) {
+					auto subdir_entry = get_dir_entry(_inode);
+					for(auto &v : subdir_entry.subdir) {
+						rm(_inode, &inodes[get<1>(v)]);
+					}
+				}
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	void rm(inode* parent, string name) {
+		auto dir_entry = get_dir_entry(parent);
+		for(auto &v : dir_entry.subdir) {
+			if(get<0>(v) == name) {
+				uint64_t index = get<1>(v);
+				inode* _inode = &inodes[index];
+				rm(parent, _inode);
+				return;
+			}
+		}
+		fprintf(stderr, "file %s does not exist!\n", name.c_str());
+	}
+
+	void rm(string name) {
+		rm(cwd_node, name);
+	}
+
 	void purge_file_contents(inode* _inode) {
 		if(_inode->self == ROOT_SELF)
 			data_bitmap[0] = 0;
@@ -329,6 +375,7 @@ public:
 		}
 		std::fill(begin(_inode->data_blocks), end(_inode->data_blocks), 0); // -TODO: indirection
 	}
+
 	void write_file(inode* _inode, unsigned char* data, uint64_t size) {
 		purge_file_contents(_inode);
 		size_t j = 0;
@@ -357,6 +404,31 @@ public:
 		}
 		write_inode(_inode, drive, sb); // commit changes to drive
 	}
+   	/**
+	 * @brief  writes to file. if file does not exist, creates one
+	 * @param  name: file name
+	 * @param  data: file content
+	 * @retval None
+	 */
+	bool write_file(string name, string data) {
+		auto dir_entry = get_dir_entry(cwd_node);
+		for(auto &v : dir_entry.subdir) {
+			if(get<0>(v) == name) {
+				uint64_t index = get<1>(v);
+				inode* _inode = &inodes[index];
+				if(_inode->type != 1) {
+					fprintf(stderr, "%s is not a file!\n", name.c_str());
+					return false;
+				}
+				write_file(_inode,(u_char*)data.c_str(), data.length());
+				return true;
+			}
+		}
+		// file does not exist:
+		inode* _inode = touch(cwd_node, name);
+		write_file(_inode,(u_char*)data.c_str(), data.length());
+		return true;
+	}
 	string read_file(inode* _inode) {
 		if(_inode->data_blocks[0] == 0) return "";
 		string data;
@@ -372,7 +444,23 @@ public:
 		}
 		return data;
 	}
-    /**
+	string read_file(string name) {
+		auto dir_entry = get_dir_entry(cwd_node);
+		for(auto &v : dir_entry.subdir) {
+			if(get<0>(v) == name) {
+				uint64_t index = get<1>(v);
+				inode* _inode = &inodes[index];
+				if(_inode->type != 1) {
+					fprintf(stderr, "%s is not a file!\n", name.c_str());
+					return "";
+				}
+				return read_file(_inode);
+			}
+		}
+		fprintf(stderr, "file %s does not exist!\n", name.c_str());
+		return "";
+	}
+	/**
 	 * @brief  common init function for constructors
 	 */
 	void init() {
@@ -445,7 +533,7 @@ public:
 		// fwrite(&cwd.subdir,)
 	}
 
-    /**
+	/**
 	 * @brief  reads and generates a directory entry structure for given the inode for the directory
 	 * @param  _inode: inode for the directory
 	 * @retval directory entry populated at run time. Changes to entry need to be committed
@@ -492,6 +580,9 @@ public:
 			if(get<0>(v) == name) {
 				uint64_t index = get<1>(v);
 				inode* _inode = &inodes[index];
+				if(_inode->type != 2) {
+					fprintf(stderr, "%s is not a directory!\n", name.c_str());
+				}
 				cwd = get_dir_entry(_inode);
 				cwd_node = _inode;
 				return;
@@ -502,6 +593,14 @@ public:
 	void ls(inode* dir) {
 		string res;
 		directory_entry dir_entry = get_dir_entry(dir);
+		for(auto &v : dir_entry.subdir) {
+			res += get<0>(v) + "\n";
+		}
+		cout << res;
+	}
+	void ls() {
+		string res;
+		directory_entry dir_entry = get_dir_entry(cwd_node);
 		for(auto &v : dir_entry.subdir) {
 			res += get<0>(v) + "\n";
 		}
@@ -529,17 +628,26 @@ int main(int argc, char** argv)
 	printf(MAGENTA "creating a user instance\n" RESET);
 	Instance instance(file,&sb[0]);
 	inode* &cwd_node = instance.cwd_node;
+
+	#if defined TEST
 	instance.mkdir(cwd_node, "hello");
 	instance.mkdir(cwd_node, "something");
 	instance.mkdir(cwd_node, "yey");
 	instance.mkdir(cwd_node, "subdirs!");
-	instance.ls(cwd_node);
+	instance.ls();
 	printf(CYAN "---\n" RESET);
 	instance.cd("hello");
 	instance.mkdir(cwd_node, "dirdir");
-	instance.ls(cwd_node);
+	instance.touch(cwd_node, "this_is_a_file");
+	instance.ls();
+	instance.write_file("this_is_a_file", "datadatadata\nasdfdata");
+	printf(GREEN"content of this_is_a_file:" RESET "\n%s\n", instance.read_file("this_is_a_file").c_str());
+	printf(RED "--rm--\n" RESET);
+	instance.rm("this_is_a_file");
+	instance.ls();
+	
 
-
+	#endif
 
 	fclose(file);
 	return 0;
