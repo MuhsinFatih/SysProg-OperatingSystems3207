@@ -248,7 +248,7 @@ public:
 	}
 	void insert_dir_entry(string name, inode* parent, inode* _inode) {
 		directory_entry p_dir = cd(parent); // read parent directory inode and dir_entry
-		if(name.length() > 16) name = name.substr(0,16);
+		if(p_dir.subdir.size() > 0) printf(CYAN "EYY%s%i\n" RESET, get<0>(p_dir.subdir[0]).c_str(), get<1>(p_dir.subdir[0]));
 		p_dir.subdir.push_back({name, _inode->self});
 		string dir_entry_str;
 		if(0) { // debug test
@@ -328,6 +328,7 @@ public:
 				uint64_t data_block_index = sb->data_block_start + i * sb->block_size;
 				fseek(drive, data_block_index, SEEK_SET);
 				purge(drive, sb->block_size); // zero-out the data block first // This is ridiculously unnecessary, but I will optimize later
+				fseek(drive, -sb->block_size, SEEK_CUR); // go back 256 bytes (purge pushes forward. That was tricky to debug)
 				fwrite(data, chunk_size, 1, drive);
 				_inode->data_blocks[j++] = i;
 				if(size == 0) break; // break when done
@@ -385,7 +386,7 @@ public:
 		} // this for loop will not do n disk requests, as the OS returns larger results from disk to increase effectiveness already. Reading the whole thing into vector directly is a problem with fread
 
 		mkdir(&inodes[0], "subdirlalala");
-		mkdir(&inodes[0], "ayyy");
+		mkdir(&inodes[0], "ayyylelelfdjknsgfhskjghkd");
 		return;
 		/*for(int i=0; i<sb->total_inodes; ++i) {
 			inode* v = inodes_sorted.top();
