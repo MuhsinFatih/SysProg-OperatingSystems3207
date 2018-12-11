@@ -87,6 +87,7 @@ void mkdir_root(FILE* drive, super_block* sb) {
 	_inode.type = 2;
 	_inode.parent = -1;
 	_inode.self = -1;
+	_inode.data_blocks[0] = 0; // It's already 0, but good to have things explicit
 	write_root_inode(_inode, drive, sb);
 }
 
@@ -292,13 +293,27 @@ public:
 				uint64_t data_block_index = sb->data_block_start + i * sb->block_size;
 				fseek(drive, data_block_index, SEEK_SET);
 				fwrite(data, chunk_size, 1, drive);
-				_inode->data_blocks[j++] = data_block_index;
+				_inode->data_blocks[j++] = i;
 				if(size == 0) break; // break when done
 				data += chunk_size; // push pointer to next chunk
 			}
 		}
 	}
-
+	string read_file(inode* _inode) {
+		if(_inode->data_blocks[0] == 0) return "";
+		string data;
+		char buffer[sb->block_size];
+		fseek(drive, sb->data_block_start + _inode->data_blocks[0] * sb->block_size, SEEK_SET);
+		fread(buffer, sb->block_size, 1, drive);
+		data += buffer; // meh..
+		for(int i=1; i<10; ++i) {
+			if(_inode->data_blocks[i] == 0) break;
+			fseek(drive, _inode->data_blocks[i] - _inode->data_blocks[i-1], SEEK_CUR);
+			fread(buffer, sb->block_size, 1, drive);
+			data += buffer;
+		}
+		return data;
+	}
     /**
 	 * @brief  common init function for constructors
 	 */
@@ -312,6 +327,7 @@ public:
 		// allocate space for block allocation bitmap, init to NULL
 		data_bitmap.resize(sb->total_data_blocks);
 		int j;
+		data_bitmap[0] = 1; // data_block index 0 belongs to the root directory
 		for(size_t i=0; i<sb->total_inodes; ++i) {
 			inode* _inode = &inodes[i];
 			if(!fread(_inode, inode_size_byte, 1, drive)) {
@@ -354,6 +370,7 @@ public:
 		inode* f = touch("asdf");
 		char* str = "lalalasometnsometn";
 		write_file(f, (u_char*)str, strlen(str));
+		printf("file content:\n%s\n", read_file(f).c_str());
 	}
 
 	void writeSomething() {
