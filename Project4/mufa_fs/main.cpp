@@ -341,19 +341,18 @@ public:
 		auto dir_entry = get_dir_entry(parent);
 		for(size_t i=0; i<dir_entry.subdir.size(); ++i) {
 			if(get<1>(dir_entry.subdir[i]) == _inode->self) {
-				if(_inode->type == 1) {
-					purge_file_contents(_inode);
-					dir_entry.subdir.erase(dir_entry.subdir.begin() + i);
-					string dir_entry_str;
-					for(size_t i=0; i<dir_entry.subdir.size(); ++i)
-						dir_entry_str += get<0>(dir_entry.subdir[i]) + '\0' + to_string(get<1>(dir_entry.subdir[i])) + '\0';
-					write_file(parent, (u_char*)dir_entry_str.c_str(), dir_entry_str.length());
-				} else if(_inode->type == 2) {
+				if(_inode->type == 2) {
 					auto subdir_entry = get_dir_entry(_inode);
 					for(auto &v : subdir_entry.subdir) {
 						rm(_inode, &inodes[get<1>(v)]);
 					}
 				}
+				purge_file_contents(_inode);
+				dir_entry.subdir.erase(dir_entry.subdir.begin() + i);
+				string dir_entry_str;
+				for(size_t i=0; i<dir_entry.subdir.size(); ++i)
+					dir_entry_str += get<0>(dir_entry.subdir[i]) + '\0' + to_string(get<1>(dir_entry.subdir[i])) + '\0';
+				write_file(parent, (u_char*)dir_entry_str.c_str(), dir_entry_str.length());
 				return true;
 			}
 		}
@@ -627,8 +626,7 @@ enum class command {
 	touch = 4,
 	write = 5,
 	rm = 6,
-    help = 7,
-	reformat = 8
+	reformat = 7
 };
 std::map<string, command> built_in_commands;
 
@@ -685,10 +683,6 @@ void built_in_func(vs argv, Instance* instance) {
 			instance->rm(argv[1]);
 			break;
 		}
-		case command::help: {
-			// TODO: help text
-			break;
-		}
 		case command::reformat: {
 			if(argv.size() < 2)
 				fprintf(stderr, "enter size in MB!\n");
@@ -709,7 +703,6 @@ void parseCommands(Instance* instance) {
 		{"touch", command::touch},
 		{"write", command::write},
 		{"rm", command::rm},
-        {"help", command::help},
 		{"reformat", command::reformat}
     };
 
