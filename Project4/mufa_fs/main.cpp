@@ -304,6 +304,9 @@ public:
 		write_inode(_inode, drive, sb); // commit changes to drive
 		inodes_sorted.push(_inode); // reinsert
 	}
+	void mkdir(string name) {
+		mkdir(cwd_node, name);
+	}
 	/**
 	 * @brief  create a new file and write it to parent's dir_entry
 	 * @param  name: filename
@@ -326,6 +329,10 @@ public:
 		#endif
 		return _inode;
 	}
+	inode* touch(string name) {
+		touch(cwd_node, name);
+	}
+
 	/**
 	 * @brief  this is rm -rf
 	 * @retval true if item found&removed. false if not found
@@ -621,6 +628,7 @@ enum class command {
 	write = 5,
 	rm = 6,
     help = 7,
+	reformat = 8
 };
 std::map<string, command> built_in_commands;
 
@@ -642,13 +650,52 @@ typedef struct exec
     redirection redir;
     bool background;
 };
-void built_in_func(string path, vs argv, Instance* instance) {
-    command cmd = built_in_commands[path];
+void built_in_func(vs argv, Instance* instance) {
+
+    command cmd = built_in_commands[argv[0]];
     switch (cmd) {
         case command::cd: {
-            
+			if(argv[1] == "..")
+				instance->cd(&instance->inodes[instance->cwd_node->parent]);
+			else 
+            	instance->cd(argv[1]);
             break;
         }
+		case command::ls: {
+			instance->ls();
+            break;
+        }
+		case command::cat: {
+			cout << instance->read_file(argv[1]) << endl;
+			break;
+		}
+		case command::mkdir: {
+			instance->mkdir(argv[1]);
+			break;
+		}
+		case command::touch: {
+			instance->touch(argv[1]);
+			break;
+		}
+		case command::write: {
+			instance->write_file(argv[1], argv[2]);
+			break;
+		}
+		case command::rm: {
+			instance->rm(argv[1]);
+			break;
+		}
+		case command::help: {
+			// TODO: help text
+			break;
+		}
+		case command::reformat: {
+			if(argv.size() < 2)
+				fprintf(stderr, "enter size in MB!\n");
+			else
+				createDriveImage("drive_name", "drive.img", MB(stoi(argv[1])));
+			break;
+		}
         default:
             break;
     }
@@ -663,9 +710,8 @@ void parseCommands(Instance* instance) {
 		{"write", command::write},
 		{"rm", command::rm},
         {"help", command::help},
+		{"reformat", command::reformat}
     };
-
-
 
     char* buf;
     std::string cmd_line; // string to store next command line
@@ -769,7 +815,8 @@ void parseCommands(Instance* instance) {
                 }
             }
         }
-		built_in_func(cmds[0].path, cmds[0].args, instance); // no redirection stuff
+
+		built_in_func(cmds[0].args, instance); // no redirection stuff
 
 	}
 }
@@ -778,10 +825,17 @@ void parseCommands(Instance* instance) {
 int main(int argc, char** argv)
 {
 	string drive_file = "drive.img";
+	#if defined TEST
 	createDriveImage("drive_name", drive_file, MB(2));
+	#endif
 	// return 0;
 	int fd = open(drive_file.c_str(), O_RDWR /*| O_EXCL*/, S_IRUSR | S_IWUSR);
 	FILE* file = fdopen(fd, "rb+");
+	if(fd < 0) {
+		createDriveImage("drive_name", drive_file, MB(2));
+		fd = open(drive_file.c_str(), O_RDWR /*| O_EXCL*/, S_IRUSR | S_IWUSR);
+		file = fdopen(fd, "rb+");
+	}
 	if(fd < 0) {
 		perror("Error reading file drive.img");
 		exit(EXIT_FAILURE);
