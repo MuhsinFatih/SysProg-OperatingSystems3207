@@ -15,6 +15,7 @@
 #define TB(x)   ((size_t) (x) << 40)
 #define nbit_char(c,n) ((n >> (8-k)) & 1)
 #define ROOT_SELF -1
+// #define DEBUG
 
 // watch "echo $OFFSET_TEXT; cat drive.img | xxd | head -c5000"
 /* Some stats:
@@ -71,16 +72,20 @@ struct directory_entry {
 
 void write_inode(inode* _inode, FILE* drive, super_block* sb) {
 	fseek(drive, sb->inodes_start + _inode->self * sb->inode_size * sb->block_size, SEEK_SET);
+	#if defined DEBUG
 	printf(GREEN "now at 0x%X\n" RESET, ftell(drive));
 	dumpbytes((unsigned char*)_inode, sizeof(inode));
+	#endif
 	fwrite(_inode, sizeof(inode), 1, drive);
 }
 
 void write_root_inode(inode& _inode, FILE* drive, super_block* sb) {
 	size_t index = 0; // inode index to write
 	fseek(drive, sb->inodes_start + index * sb->inode_size * sb->block_size, SEEK_SET);
+	#if defined DEBUG
 	printf(GREEN "now at 0x%X\n" RESET, ftell(drive));
 	dumpbytes((unsigned char*)&_inode, sizeof(inode));
+	#endif
 	fwrite(&_inode, sizeof(inode), 1, drive);
 }
 void mkdir_root(FILE* drive, super_block* sb) {
@@ -153,9 +158,11 @@ void createDriveImage(string name, string path, size_t size) {
 	sb.data_block_start = sb.inodes_start + sb.total_inodes * sb.block_size * sb.inode_size;
 	sb.total_data_blocks = sb.total_blocks - sb.total_inodes;
 
+	#if defined DEBUG
 	// print superblock
 	print_superblock(&sb);
 	dumpbytes((unsigned char*)&sb,sizeof(super_block));
+	#endif
 
 
 	// create empty file of given size
@@ -172,7 +179,9 @@ void createDriveImage(string name, string path, size_t size) {
 	// purge inode area
 	purge(file, sb.total_inodes * sb.inode_size * sb.block_size);
 	
+	#if defined DEBUG
 	printf("now at 0x%X\n", ftell(file));
+	#endif
 
 	mkdir_root(file, &sb);
 
@@ -223,7 +232,7 @@ public:
 			return r->self > l->self;
 		}};
 	std::priority_queue<inode*, vector<inode*>, comp> inodes_sorted;
-	inode cwd_node; // current working directory's inode
+	inode* cwd_node; // current working directory's inode
 	directory_entry cwd; // current working directory's entry
 
 	// pre-calculate variables
@@ -247,10 +256,10 @@ public:
 		return _inode;
 	}
 	void insert_dir_entry(string name, inode* parent, inode* _inode) {
-		directory_entry p_dir = cd(parent); // read parent directory inode and dir_entry
-		if(p_dir.subdir.size() > 0) printf(CYAN "EYY%s%i\n" RESET, get<0>(p_dir.subdir[0]).c_str(), get<1>(p_dir.subdir[0]));
+		directory_entry p_dir = get_dir_entry(parent); // read parent directory inode and dir_entry
 		p_dir.subdir.push_back({name, _inode->self});
 		string dir_entry_str;
+		#if defined DEBUG
 		if(0) { // debug test
 			for(size_t i=0; i<p_dir.subdir.size(); ++i) {
 				dir_entry_str += get<0>(p_dir.subdir[i]) + '\0' + to_string(get<1>(p_dir.subdir[i])) + '\0';
@@ -264,36 +273,43 @@ public:
 			printf("dir_entry:%s\n", dir_entry_str.c_str());
 			dumpbytes((u_char*)dir_entry_str.c_str(),dir_entry_str.length());
 		}
+		#endif
 		for(size_t i=0; i<p_dir.subdir.size(); ++i)
 			dir_entry_str += get<0>(p_dir.subdir[i]) + '\0' + to_string(get<1>(p_dir.subdir[i])) + '\0';
 		write_file(parent, (u_char*)dir_entry_str.c_str(), dir_entry_str.length());
 
-
+		#if defined DEBUG
 		printf("p_dir:\n");
 		for(int i=0; i<p_dir.subdir.size();++i) {
 			printf("%s%i\n", get<0>(p_dir.subdir[i]).c_str(), get<1>(p_dir.subdir[i]));
 		}
+		#endif
 	}
 	void mkdir(inode* parent, string name) {
 		inode* _inode = find_inode();
 		// memset(&_inode, '\0', sizeof(inode));
 		_inode->type = 2;
-		_inode->parent = parent->self;
+		if(parent->self == -1)
+			_inode->parent = 0;
+		else
+			_inode->parent = parent->self;
 
 		assert(parent != NULL);
-
 		insert_dir_entry(name, parent, _inode);
-		write_inode(_inode, drive, sb);
+		write_inode(_inode, drive, sb); // commit changes to drive
+		inodes_sorted.push(_inode); // reinsert
 	}
     /**
      * @brief  create a new file and write it to parent's dir_entry
 	 * @param  name: filename
      * @retval inode reference
      */
-	inode* touch(string name) {
+	inode* touch(inode* parent, string name) {
 		inode* _inode = find_inode();
-		_inode->parent = 0; // TODO: implement parent relationship
-		write_inode(_inode, drive, sb);
+		_inode->parent = parent->self;
+		insert_dir_entry(name, parent, _inode);
+		write_inode(_inode, drive, sb); // commit changes to drive
+		#if defined DEBUG
 		printf(YELLOW "touch inode index: %lu\n" RESET, _inode->parent);
 		fseek(drive, sb->inodes_start + _inode->self * sb->inode_size * sb->block_size, SEEK_SET);
 		char buf[50];
@@ -301,11 +317,15 @@ public:
 		dumpbytes((u_char*)buf, 50);
 		printf("\n");
 		dumpbytes((u_char*)_inode, sizeof(inode));
+		#endif
 		return _inode;
 	}
 	void purge_file_contents(inode* _inode) {
+		if(_inode->self == ROOT_SELF)
+			data_bitmap[0] = 0;
 		for(int i=0; i<10; ++i) {
-			data_bitmap[_inode->data_blocks[i]] = 0; // keep track of unallocation
+			if(_inode->data_blocks[i] != 0)
+				data_bitmap[_inode->data_blocks[i]] = 0; // keep track of unallocation
 		}
 		std::fill(begin(_inode->data_blocks), end(_inode->data_blocks), 0); // -TODO: indirection
 	}
@@ -335,6 +355,7 @@ public:
 				data += chunk_size; // push pointer to next chunk
 			}
 		}
+		write_inode(_inode, drive, sb); // commit changes to drive
 	}
 	string read_file(inode* _inode) {
 		if(_inode->data_blocks[0] == 0) return "";
@@ -385,28 +406,28 @@ public:
 			// printf(BOLDBLUE "now at 0x%X\n" RESET, ftell(drive));
 		} // this for loop will not do n disk requests, as the OS returns larger results from disk to increase effectiveness already. Reading the whole thing into vector directly is a problem with fread
 
-		mkdir(&inodes[0], "subdirlalala");
-		mkdir(&inodes[0], "ayyylelelfdjknsgfhskjghkd");
-		return;
 		/*for(int i=0; i<sb->total_inodes; ++i) {
 			inode* v = inodes_sorted.top();
 			printf("self:%i\t\ttype:%i\n", v->self, v->type);
 			inodes_sorted.pop();
 		}*/
+		#if defined DEBUG
 		for(size_t i=0; i<200; ++i) {
 			cout << data_bitmap[i];
 		}
+		#endif
 		cout << endl;
 
 		// cd into root directory
-		cwd_node = inodes[0];
+		cwd_node = &inodes[0];
+		#if defined DEBUG
 		printf(YELLOW "read root inode:\n" RESET);
 		dumpbytes((unsigned char*)&cwd_node, sizeof(inode));
-		cwd = cd(&cwd_node);
-		writeSomething2();
+		#endif
+		cwd = get_dir_entry(cwd_node);
 	}
 	void writeSomething2() {
-		inode* f = touch("asdf");
+		inode* f = touch(cwd_node, "asdf");
 		char* str = "lalalasometnsometn";
 		write_file(f, (u_char*)str, strlen(str));
 		printf("file content:\n%s\n", read_file(f).c_str());
@@ -415,7 +436,7 @@ public:
 	void writeSomething() {
 		tuple<string, uint64_t> subdir = {"subdir", 0};
 		cwd.subdir.push_back(subdir);
-		fseek(drive, sb->data_block_start + cwd_node.data_blocks[0] * sb->inode_size * sb->block_size, SEEK_SET);
+		fseek(drive, sb->data_block_start + cwd_node->data_blocks[0] * sb->inode_size * sb->block_size, SEEK_SET);
 		string dirstr;
 		for(auto [name, p] : cwd.subdir) {
 			dirstr += name + to_string(p);
@@ -423,25 +444,30 @@ public:
 		printf("dirstr:%s\n", dirstr.c_str());
 		// fwrite(&cwd.subdir,)
 	}
+
     /**
 	 * @brief  reads and generates a directory entry structure for given the inode for the directory
 	 * @param  _inode: inode for the directory
 	 * @retval directory entry populated at run time. Changes to entry need to be committed
 	 */
-	directory_entry cd(inode* _inode){
+	directory_entry get_dir_entry(inode* _inode){
 		directory_entry dir;
 		string cur = "";
 		for(int i=0; i<10; ++i) {
 			if(_inode->data_blocks[i] != 0 || (_inode->self==ROOT_SELF && i == 0)) { // only first data block on root directory can have index 0
 				fseek(drive, sb->data_block_start + _inode->data_blocks[i] * sb->block_size, SEEK_SET);
+				#if defined DEBUG
 				printf(GREEN "now at 0x%X\n" RESET, ftell(drive));
+				#endif
 				char data[sb->block_size]; // I thought this allocation was illegal in c++ hehe
 				char* p = data;
 				fread(data, 1, sb->block_size, drive); // filling into an array, items each of size 1
 				size_t l = 0;
+				#if defined DEBUG
 				printf(RED);
 				dumpbytes((u_char*)data, 256);
 				printf(RESET);
+				#endif
 				while((l = strlen(p)) > 0) {
 					string dirname(p);
 					p += l+1; // skip name and padding zero
@@ -455,6 +481,31 @@ public:
 			}
 		}
 		return dir;
+	}
+	void cd(inode* _inode){
+		cwd = get_dir_entry(_inode);
+		cwd_node = _inode;
+	}
+	void cd(string name){
+		auto dir_entry = get_dir_entry(cwd_node);
+		for(auto &v : dir_entry.subdir) {
+			if(get<0>(v) == name) {
+				uint64_t index = get<1>(v);
+				inode* _inode = &inodes[index];
+				cwd = get_dir_entry(_inode);
+				cwd_node = _inode;
+				return;
+			}
+		}
+		fprintf(stderr, "directory %s does not exist\n", name.c_str());
+	}
+	void ls(inode* dir) {
+		string res;
+		directory_entry dir_entry = get_dir_entry(dir);
+		for(auto &v : dir_entry.subdir) {
+			res += get<0>(v) + "\n";
+		}
+		cout << res;
 	}
 };
 
@@ -473,19 +524,23 @@ int main(int argc, char** argv)
 	printf(GREEN "opened virtual disk: %s\n" RESET, drive_file.c_str());
 	printf(MAGENTA "reading super_block:\n" RESET);
 	vector<super_block> sb = read_superblock(file);
-	
 	print_superblock(&sb[0]);
-	// char* inodes;
-	// size_t inodes_len = mmap_inodes(file, &sb[0], inodes);
-
-	// printf("inodes_len = %lu\n", inodes_len);
-	// dumpbytes((unsigned char*)inodes, 0x200);
-
-
 
 	printf(MAGENTA "creating a user instance\n" RESET);
-
 	Instance instance(file,&sb[0]);
+	inode* &cwd_node = instance.cwd_node;
+	instance.mkdir(cwd_node, "hello");
+	instance.mkdir(cwd_node, "something");
+	instance.mkdir(cwd_node, "yey");
+	instance.mkdir(cwd_node, "subdirs!");
+	instance.ls(cwd_node);
+	printf(CYAN "---\n" RESET);
+	instance.cd("hello");
+	instance.mkdir(cwd_node, "dirdir");
+	instance.ls(cwd_node);
+
+
+
 	fclose(file);
 	return 0;
 }
