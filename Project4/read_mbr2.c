@@ -67,6 +67,29 @@ typedef struct {
 	unsigned int file_size;
 } __attribute((packed)) Fat16Entry;
 
+void print_file_info(Fat16Entry *entry) {
+    switch(entry->filename[0]) {
+    case 0x00:
+        return; // unused entry
+    case 0xE5:
+        printf("Deleted file: [?%.7s.%.3s]\n", entry->filename+1, entry->ext);
+        return;
+    case 0x05:
+        printf("File starting with 0xE5: [%c%.7s.%.3s]\n", 0xE5, entry->filename+1, entry->ext);
+        break;
+    case 0x2E:
+        printf("Directory: [%.8s.%.3s]\n", entry->filename, entry->ext);
+        break;
+    default:
+        printf("File: [%.8s.%.3s]\n", entry->filename, entry->ext);
+    }
+    
+    printf("  Modified: %04d-%02d-%02d %02d:%02d.%02d    Start: [%04X]    Size: %d\n", 
+        1980 + (entry->modify_date >> 9), (entry->modify_date >> 5) & 0xF, entry->modify_date & 0x1F,
+        (entry->modify_time >> 11), (entry->modify_time >> 5) & 0x3F, entry->modify_time & 0x1F,
+        entry->starting_cluster, entry->file_size);
+}
+
 int main(int argc, char** argv)
 {
 	FILE * in = fopen("sample.fat16", "rb");
@@ -106,7 +129,7 @@ int main(int argc, char** argv)
 			return -1;
 		}
 	}
-	// whatever, fuck this tutorial, values don't match
+
 	// fseek(in, 0x1020A, SEEK_SET);
 	fseek(in, 0x0, SEEK_SET);
 	fread(&bs, sizeof(Fat16BootSector), 1, in);
@@ -135,7 +158,14 @@ int main(int argc, char** argv)
     printf(BOLDWHITE "  Boot sector signature:" RESET " 0x%04X\n", bs.boot_sector_signature);
     
 
-	// fseek(in, (bs.reserved_sectors-1 + bs.fat_size_sectors*bs.number_of_fats))
+	fseek(in, (bs.reserved_sectors-1 + bs.fat_size_sectors*bs.number_of_fats) * bs.sector_size, SEEK_CUR);
+	printf("now at 0x%X\n", ftell(in));
+
+	for(int i=0; i<bs.root_dir_entries; ++i) {
+		Fat16Entry* entry;
+		fread(&entry, sizeof(entry), 1, in);
+		print_file_info(entry);
+	}
 
 	fclose(in);
 	return 0; 

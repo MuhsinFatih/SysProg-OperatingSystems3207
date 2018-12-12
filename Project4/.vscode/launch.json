@@ -3,7 +3,7 @@
     "configurations": [
         
         {
-            "name"           : "(lldb) Launch",
+            "name"           : "(lldb) Launch C",
             "type"           : "cppdbg",
             "request"        : "launch",
             "program"        : "${workspaceRoot}/debug.out",
@@ -14,6 +14,19 @@
             "externalConsole": false,
             "MIMode"         : "lldb",
             "preLaunchTask"  : "buildCurrentFile_C",
+        },
+        {
+            "name"           : "(lldb) Launch",
+            "type"           : "cppdbg",
+            "request"        : "launch",
+            "program"        : "${workspaceRoot}/debug.out",
+            "args"           : [],
+            "stopAtEntry"    : false,
+            "cwd"            : "${workspaceFolder}",
+            "environment"    : [],
+            "externalConsole": false,
+            "MIMode"         : "lldb",
+            "preLaunchTask"  : "buildCurrentFile",
         },
         
     ]

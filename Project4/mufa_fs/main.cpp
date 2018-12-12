@@ -716,7 +716,7 @@ void parseCommands(Instance* instance) {
             add_history(buf);
         }
         
-        // lexer ##########################3
+        // lexer ##########################
 
         vector<exec> cmds;
         exec first = {
