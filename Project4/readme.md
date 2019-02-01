@@ -100,4 +100,4 @@ name\0inode_position\0
 ...
 ```
 
-Rest of the implementation is too complicated for me to explain in a readme file, so I created a diagram that expresses the entire workings of the program and all the data structures (you might want to open it in an external program, image is very big): ![Diagram](diagram.png "Diagram")
+Rest of the implementation is too complicated for me to explain in a readme file, so I created a diagram that expresses the entire workings of the program and all the data structures (you might want to open it in an external program, image is very big): ![Diagram](mufa_fs/diagram.png "Diagram")
